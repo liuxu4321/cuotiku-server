@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: yycuotiku-server
+  ai:
+    dashscope:
+      # 哨兵值：未配置 DASHSCOPE_API_KEY 时服务仍可启动，Agent 接口返回 503
+      api-key: ${DASHSCOPE_API_KEY:not-configured}
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  servlet:
+    multipart:
+      max-request-size: 30MB
+      max-file-size: 30MB
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+app:
+  agent:
+    daily-limit: ${AGENT_DAILY_LIMIT:20}
+  captcha:
+    ttl-seconds: 300
+    length: 4
+  cos:
+    region: ${COS_REGION:ap-beijing}
+    local-dir: ${BOOK_LOCAL_DIR:data/book-storage}
+  ai:
+    tencent:
+      endpoint: ${TENCENT_OCR_ENDPOINT:ocr.tencentcloudapi.com}
+      region: ${TENCENT_OCR_REGION:ap-guangzhou}
+      timeout-seconds: 90

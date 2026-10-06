@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾星错题本后台管理</title>
+<style>
+  :root {
+    --primary: #4f6ef7; --primary-dark: #3b55d9; --bg: #f4f6fb; --card: #ffffff;
+    --text: #1f2430; --muted: #7a8194; --border: #e3e7f0; --danger: #e5484d; --ok: #30a46c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); }
+  .hidden { display: none !important; }
+  .center { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: var(--card); border-radius: 12px; box-shadow: 0 4px 24px rgba(31,36,48,.08); padding: 28px; }
+  .login-card { width: 380px; }
+  .login-card h1 { font-size: 20px; margin-bottom: 4px; }
+  .login-card p.sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
+  .field input:focus { border-color: var(--primary); }
+  .captcha-row { display: flex; gap: 10px; }
+  .captcha-row input { flex: 1; }
+  .captcha-row img { height: 42px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+  .btn { display: inline-block; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; background: var(--primary); color: #fff; }
+  .btn:hover { background: var(--primary-dark); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn.block { width: 100%; }
+  .btn.ghost { background: #eef1fb; color: var(--primary); }
+  .btn.danger { background: #fdebec; color: var(--danger); }
+  .btn.small { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+  .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 18px; }
+  header { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  header .brand { font-weight: 600; font-size: 16px; }
+  header .user { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 12px; }
+  .layout { display: flex; min-height: calc(100vh - 56px); }
+  .sidebar { width: 190px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border); padding: 16px 10px; }
+  .menu-item { display: block; width: 100%; text-align: left; padding: 10px 14px; border: none; background: transparent; border-radius: 8px; font-size: 14px; cursor: pointer; color: var(--text); margin-bottom: 4px; }
+  .menu-item:hover { background: #f4f6fb; }
+  .menu-item.active { background: #eef1fb; color: var(--primary); font-weight: 600; }
+  .content { flex: 1; padding: 24px; min-width: 0; }
+  .content-inner { max-width: 1100px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .toolbar input, .toolbar select { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
+  .toolbar input[type="text"], .toolbar input:not([type]) { width: 220px; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .sep { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(31,36,48,.05); }
+  th, td { text-align: left; padding: 12px 14px; font-size: 13.5px; border-bottom: 1px solid var(--border); }
+  th { background: #f8f9fd; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+  .tag.on { background: #e6f6ef; color: var(--ok); }
+  .tag.off { background: #f1f2f6; color: var(--muted); }
+  .tag.admin { background: #eef1fb; color: var(--primary); }
+  .tag.cancelled { background: #fdebec; color: var(--danger); }
+  .tag.err { background: #fdebec; color: var(--danger); }
+  .pager { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(15,18,28,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { width: 420px; max-height: 90vh; overflow: auto; }
+  .modal h2 { font-size: 16px; margin-bottom: 18px; }
+  .modal .row2 { display: flex; gap: 12px; }
+  .modal .row2 .field { flex: 1; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 14px; }
+  .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #1f2430; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 200; }
+  .summary-cards { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .summary-card { background: var(--card); border-radius: 12px; padding: 14px 24px; box-shadow: 0 2px 12px rgba(31,36,48,.05); min-width: 140px; }
+  .summary-card .label { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .summary-card .num { font-size: 24px; font-weight: 600; }
+  .summary-card .num.ok { color: var(--ok); }
+  .summary-card .num.err { color: var(--danger); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  .err-cell { max-width: 260px; }
+  .err-cell .msg { color: var(--danger); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div id="loginView" class="center hidden">
+  <div class="card login-card">
+    <h1>拾星错题本后台管理</h1>
+    <p class="sub">请使用管理员账号登录</p>
+    <div class="field"><label>手机号</label><input id="loginPhone" maxlength="11" placeholder="请输入手机号"></div>
+    <div class="field"><label>密码</label><input id="loginPassword" type="password" placeholder="请输入密码"></div>
+    <div class="field"><label>验证码</label>
+      <div class="captcha-row">
+        <input id="loginCaptcha" maxlength="6" placeholder="点击右侧图片刷新">
+        <img id="captchaImg" alt="验证码" title="点击刷新" onclick="loadCaptcha()">
+      </div>
+    </div>
+    <button class="btn block" id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="error-msg" id="loginError"></div>
+  </div>
+</div>
+
+<div id="mainView" class="hidden">
+  <header>
+    <div class="brand">拾星错题本后台管理</div>
+    <div class="user">
+      <span id="currentUser"></span>
+      <button class="btn ghost small" onclick="doLogout()">退出登录</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <button class="menu-item active" data-menu="users" onclick="switchMenu('users')">用户管理</button>
+      <button class="menu-item" data-menu="stats" onclick="switchMenu('stats')">AI调用统计</button>
+      <button class="menu-item" data-menu="keepalive" onclick="switchMenu('keepalive')">客户端管理</button>
+      <button class="menu-item" data-menu="agents" onclick="switchMenu('agents')">Agent管理</button>
+    </nav>
+    <main class="content"><div class="content-inner">
+
+      <section id="usersSection">
+        <div class="toolbar">
+          <input id="searchInput" placeholder="搜索手机号 / 会员号" onkeydown="if(event.key==='Enter')loadUsers(0)">
+          <button class="btn ghost" onclick="loadUsers(0)">搜索</button>
+          <div class="spacer"></div>
+          <button class="btn" onclick="openCreate()">＋ 添加用户</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>ID</th><th>手机号</th><th>会员号</th><th>会员有效期</th><th>角色</th><th>AI权限</th><th>状态</th>
+            <th>最近登录</th><th>创建时间</th><th>操作</th>
+          </tr></thead>
+          <tbody id="userRows"></tbody>
+        </table>
+        <div class="pager">
+          <button class="btn ghost small" id="prevBtn" onclick="loadUsers(state.page-1)">上一页</button>
+          <span id="pageInfo"></span>
+          <button class="btn ghost small" id="nextBtn" onclick="loadUsers(state.page+1)">下一页</button>
+        </div>
+      </section>
+
+      <section id="statsSection" class="hidden">
+        <div class="toolbar">
+          <input id="statsPhone" placeholder="按手机号查询" onkeydown="if(event.key==='Enter')loadAiStats(0)">
+          <select id="statsType">
+            <option value="">全部AI类型</option>
+            <option value="ERASE">去手写</option>
+            <option value="CROP_ENHANCE">切边增强</option>
+            <option value="SPLIT_QUESTIONS">自动切题</option>
+            <option value="ANALOGY">举一反三</option>
+            <option value="EXPLAIN">做题精讲</option>
+          </select>
+          <input id="statsStart" type="date" aria-label="开始日期">
+          <span class="sep">至</span>
+          <input id="statsEnd" type="date" aria-label="结束日期">
+          <button class="btn ghost" onclick="loadAiStats(0)">查询</button>
+        </div>
+        <div class="summary-cards">
+          <div class="summary-card"><div class="label">总调用</div><div class="num" id="statsTotal">-</div></div>
+          <div class="summary-card"><div class="label">成功</div><div class="num ok" id="statsSuccess">-</div></div>
+          <div class="summary-card"><div class="label">失败</div><div class="num err" id="statsFailed">-</div></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>时间</th><th>手机号</th><th>AI类型</th><th>结果</th><th>耗时</th>
+            <th>输入</th><th>输出</th><th>Tokens</th><th>追踪ID</th><th class="err-cell">错误信息</th>
+          </tr></thead>
+          <tbody id="statsRows"></tbody>
+        </table>
+        <div class="pager">
+          <button class="btn ghost small" id="statsPrevBtn" onclick="loadAiStats(state.statsPage-1)">上一页</button>
+          <span id="statsPageInfo"></span>
+          <button class="btn ghost small" id="statsNextBtn" onclick="loadAiStats(state.statsPage+1)">下一页</button>
+        </div>
+      </section>
+
+      <section id="keepaliveSection" class="hidden">
+        <div class="toolbar">
+          <input id="keepaliveKeyword" placeholder="搜索手机号 / 客户端ID" onkeydown="if(event.key==='Enter')loadKeepalives(0)">
+          <button class="btn ghost" onclick="loadKeepalives(0)">查询</button>
+          <label class="switch" style="margin:0"><input type="checkbox" id="keepaliveOnlineOnly" onchange="loadKeepalives(0)"> 仅在线</label>
+          <button class="btn ghost" onclick="loadKeepalives(state.keepalivePage)">刷新</button>
+          <span class="sep">在线判定：150 秒内有心跳上报 · 每 30 秒自动刷新</span>
+          <div class="spacer"></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>在线</th><th>用户</th><th>客户端ID</th><th>状态</th><th>版本</th><th>平台</th>
+            <th>上报次数</th><th>首次上报</th><th>最近上报</th>
+          </tr></thead>
+          <tbody id="keepaliveRows"></tbody>
+        </table>
+        <div class="pager">
+          <button class="btn ghost small" id="keepalivePrevBtn" onclick="loadKeepalives(state.keepalivePage-1)">上一页</button>
+          <span id="keepalivePageInfo"></span>
+          <button class="btn ghost small" id="keepaliveNextBtn" onclick="loadKeepalives(state.keepalivePage+1)">下一页</button>
+        </div>
+      </section>
+
+      <section id="agentsSection" class="hidden">
+        <div class="toolbar">
+          <span class="sep">Agent 的系统提示词 / 用户提示词模板 / 模型参数可在此调整，保存后即时生效。</span>
+          <div class="spacer"></div>
+          <button class="btn ghost" onclick="loadAgents()">刷新</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Agent</th><th>模型</th><th>温度</th><th>maxTokens</th><th>状态</th><th>更新时间</th><th>操作</th>
+          </tr></thead>
+          <tbody id="agentRows"></tbody>
+        </table>
+      </section>
+
+    </div></main>
+  </div>
+</div>
+
+<div id="modalMask" class="modal-mask hidden" onclick="if(event.target===this)closeModal()">
+  <div class="card modal">
+    <h2 id="modalTitle">添加用户</h2>
+    <div id="modalBody"></div>
+    <div class="error-msg" id="modalError"></div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+const state = {
+  token: localStorage.getItem('yy_admin_token') || '', menu: 'users',
+  page: 0, size: 15, total: 0, keyword: '',
+  statsPage: 0, statsSize: 20, statsTotal: 0,
+  keepalivePage: 0, keepaliveSize: 20,
+  captchaId: '', me: null
+};
+
+function $(id) { return document.getElementById(id); }
+function esc(v) { return v == null ? '' : String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+async function api(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(API + path, { ...options, headers });
+  let body = null;
+  try { body = await res.json(); } catch { /* ignore */ }
+  if (res.status === 401 || res.status === 403) {
+    if (state.token) { state.token = ''; localStorage.removeItem('yy_admin_token'); showLogin(); }
+    throw new Error((body && body.message) || '登录已失效，请重新登录');
+  }
+  if (!res.ok || (body && body.code !== 0)) throw new Error((body && body.message) || ('请求失败 HTTP ' + res.status));
+  return body ? body.data : null;
+}
+
+function showLogin() { $('mainView').classList.add('hidden'); $('loginView').classList.remove('hidden'); loadCaptcha(); }
+function showMain() { $('loginView').classList.add('hidden'); $('mainView').classList.remove('hidden'); }
+
+function switchMenu(menu) {
+  state.menu = menu;
+  document.querySelectorAll('.menu-item').forEach(el => el.classList.toggle('active', el.dataset.menu === menu));
+  $('usersSection').classList.toggle('hidden', menu !== 'users');
+  $('statsSection').classList.toggle('hidden', menu !== 'stats');
+  $('keepaliveSection').classList.toggle('hidden', menu !== 'keepalive');
+  $('agentsSection').classList.toggle('hidden', menu !== 'agents');
+  if (menu === 'agents') loadAgents();
+  stopKeepaliveTimer();
+  if (menu === 'keepalive') { loadKeepalives(0); startKeepaliveTimer(); }
+  if (menu === 'stats') loadAiStats(0);
+  if (menu === 'users') loadUsers(state.page);
+}
+
+async function loadCaptcha() {
+  try {
+    const data = await api('/api/auth/captcha');
+    state.captchaId = data.captchaId;
+    $('captchaImg').src = data.imageBase64;
+  } catch (e) { toast(e.message); }
+}
+
+async function doLogin() {
+  $('loginError').textContent = '';
+  $('loginBtn').disabled = true;
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({
+      phone: $('loginPhone').value.trim(), password: $('loginPassword').value,
+      captchaId: state.captchaId, captchaCode: $('loginCaptcha').value.trim(), clientLabel: 'admin-web'
+    })});
+    if (data.user.role !== 'ADMIN') { state.token = ''; throw new Error('该账号不是管理员，无法进入后台'); }
+    state.token = data.token;
+    localStorage.setItem('yy_admin_token', data.token);
+    $('loginPassword').value = ''; $('loginCaptcha').value = '';
+    await enterMain();
+  } catch (e) {
+    $('loginError').textContent = e.message;
+    loadCaptcha();
+  } finally { $('loginBtn').disabled = false; }
+}
+
+async function doLogout() {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+  state.token = ''; localStorage.removeItem('yy_admin_token');
+  showLogin();
+}
+
+async function enterMain() {
+  state.me = await api('/api/auth/me');
+  $('currentUser').textContent = state.me.phone + '（' + (state.me.memberNo || '管理员') + '）';
+  showMain();
+  switchMenu(state.menu);
+}
+
+/* ========== 用户管理 ========== */
+
+async function loadUsers(page) {
+  if (page < 0) return;
+  state.keyword = $('searchInput').value.trim();
+  try {
+    const data = await api(`/api/admin/users?page=${page}&size=${state.size}&keyword=${encodeURIComponent(state.keyword)}`);
+    state.page = data.page; state.total = data.total;
+    const totalPages = Math.max(1, Math.ceil(data.total / data.size));
+    $('pageInfo').textContent = `第 ${data.page + 1} / ${totalPages} 页 · 共 ${data.total} 条`;
+    $('prevBtn').disabled = data.page <= 0;
+    $('nextBtn').disabled = data.page + 1 >= totalPages;
+    $('userRows').innerHTML = data.items.map(u => `
+      <tr>
+        <td>${u.id}</td>
+        <td>${esc(u.phone)}</td>
+        <td>${esc(u.memberNo) || '-'}</td>
+        <td>${u.memberExpireAt ? esc(u.memberExpireAt) + ' ' + (u.memberActive ? '<span class="tag on">有效</span>' : '<span class="tag off">已过期</span>') : '<span class="tag off">非会员</span>'}</td>
+        <td>${u.role === 'ADMIN' ? '<span class="tag admin">管理员</span>' : '普通用户'}</td>
+        <td><span class="tag ${u.aiEnabled ? 'on' : 'off'}">${u.aiEnabled ? '已开通' : '未开通'}</span></td>
+        <td>${u.cancelled ? '<span class="tag cancelled">已注销</span>' : `<span class="tag ${u.enabled ? 'on' : 'off'}">${u.enabled ? '正常' : '停用'}</span>`}</td>
+        <td>${esc(u.lastLoginAt) || '-'}</td>
+        <td>${esc(u.createdAt) || '-'}</td>
+        <td class="actions">
+          <button class="btn ghost small" onclick='openEdit(${JSON.stringify(u)})'>编辑</button>
+          <button class="btn ghost small" onclick="openReset(${u.id}, '${esc(u.phone)}')">重置密码</button>
+          ${u.cancelled ? '' : `<button class="btn ghost small" onclick="doCancelMembership(${u.id}, '${esc(u.phone)}')">注销会员</button>`}
+          <button class="btn danger small" onclick="doDelete(${u.id}, '${esc(u.phone)}')">删除</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+
+function plusOneYear() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+async function doCancelMembership(id, phone) {
+  if (!confirm(`确认注销 ${phone} 吗？将清除会员信息、关闭AI权限、立即踢下线，且该用户无法再登录（提示同密码错误）。如需恢复，编辑该用户重新填写会员号或有效期即可。`)) return;
+  try { await api(`/api/admin/users/${id}/membership`, { method: 'DELETE' }); toast('会员已注销'); loadUsers(state.page); }
+  catch (e) { toast(e.message); }
+}
+
+function openModal(title, bodyHtml, onOk) {
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = bodyHtml;
+  $('modalError').textContent = '';
+  $('modalOk').onclick = onOk;
+  $('modalMask').classList.remove('hidden');
+}
+function closeModal() { $('modalMask').classList.add('hidden'); }
+
+function openCreate() {
+  openModal('添加用户', `
+    <div class="field"><label>手机号 *</label><input id="fPhone" maxlength="11" placeholder="11位手机号"></div>
+    <div class="row2">
+      <div class="field"><label>会员号</label><input id="fMemberNo" maxlength="64" placeholder="选填"></div>
+      <div class="field"><label>初始密码 *</label><input id="fPassword" maxlength="64" placeholder="至少6位"></div>
+    </div>
+    <div class="field"><label>会员有效期（默认一年）</label><input id="fMemberExpireAt" type="date" value="${plusOneYear()}"></div>
+    <div class="row2">
+      <div class="field"><label>角色</label><select id="fRole"><option value="USER">普通用户</option><option value="ADMIN">管理员</option></select></div>
+      <div class="field" style="display:flex;align-items:flex-end;gap:16px;padding-bottom:8px">
+        <label class="switch"><input type="checkbox" id="fAi"> AI权限</label>
+        <label class="switch"><input type="checkbox" id="fEnabled" checked> 启用</label>
+      </div>
+    </div>`, async () => {
+    try {
+      await api('/api/admin/users', { method: 'POST', body: JSON.stringify({
+        phone: $('fPhone').value.trim(), memberNo: $('fMemberNo').value.trim(),
+        memberExpireAt: $('fMemberExpireAt').value || null,
+        password: $('fPassword').value, role: $('fRole').value,
+        aiEnabled: $('fAi').checked, enabled: $('fEnabled').checked })});
+      closeModal(); toast('用户已创建'); loadUsers(state.page);
+    } catch (e) { $('modalError').textContent = e.message; }
+  });
+}
+
+function openEdit(u) {
+  openModal('编辑用户 · ' + u.phone, `
+    ${u.cancelled ? '<p style="font-size:12px;color:var(--danger);margin-bottom:12px">该用户已注销，无法登录。重新填写会员号或有效期将自动恢复正常状态。</p>' : ''}
+    <div class="row2">
+      <div class="field"><label>会员号</label><input id="fMemberNo" maxlength="64" value="${esc(u.memberNo)}"></div>
+      <div class="field"><label>会员有效期（留空则清除）</label><input id="fMemberExpireAt" type="date" value="${esc(u.memberExpireAt)}"></div>
+    </div>
+    <div class="field"><label>角色</label><select id="fRole">
+      <option value="USER" ${u.role === 'USER' ? 'selected' : ''}>普通用户</option>
+      <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>管理员</option></select></div>
+    <div class="field"><label>新密码（留空则不修改，修改后该用户需重新登录）</label><input id="fPassword" maxlength="64" placeholder="至少6位"></div>
+    <label class="switch"><input type="checkbox" id="fAi" ${u.aiEnabled ? 'checked' : ''}> 开通AI去手写权限</label>
+    <label class="switch"><input type="checkbox" id="fEnabled" ${u.enabled ? 'checked' : ''}> 账号启用（停用后立即踢下线）</label>`, async () => {
+    try {
+      await api('/api/admin/users/' + u.id, { method: 'PUT', body: JSON.stringify({
+        memberNo: $('fMemberNo').value.trim(), role: $('fRole').value,
+        memberExpireAt: $('fMemberExpireAt').value,
+        password: $('fPassword').value || null,
+        aiEnabled: $('fAi').checked, enabled: $('fEnabled').checked })});
+      closeModal(); toast('用户已更新'); loadUsers(state.page);
+    } catch (e) { $('modalError').textContent = e.message; }
+  });
+}
+
+function openReset(id, phone) {
+  openModal('重置密码 · ' + phone, `
+    <div class="field"><label>新密码 *</label><input id="fPassword" maxlength="64" placeholder="至少6位"></div>
+    <p style="font-size:12px;color:var(--muted)">重置后该用户当前登录会被踢下线。</p>`, async () => {
+    try {
+      await api(`/api/admin/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ password: $('fPassword').value })});
+      closeModal(); toast('密码已重置');
+    } catch (e) { $('modalError').textContent = e.message; }
+  });
+}
+
+async function doDelete(id, phone) {
+  if (!confirm(`确认删除用户 ${phone} 吗？删除后该用户立即无法登录。`)) return;
+  try { await api('/api/admin/users/' + id, { method: 'DELETE' }); toast('用户已删除'); loadUsers(state.page); }
+  catch (e) { toast(e.message); }
+}
+
+/* ========== AI调用统计 ========== */
+
+function fmtBytes(n) {
+  if (!n || n <= 0) return '-';
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
+function aiTypeLabel(t) {
+  return t === 'ERASE' ? '去手写' : t === 'CROP_ENHANCE' ? '切边增强' : t === 'SPLIT_QUESTIONS' ? '自动切题' : t === 'ANALOGY' ? '举一反三' : t === 'EXPLAIN' ? '做题精讲' : esc(t);
+}
+
+async function loadAiStats(page) {
+  if (page < 0) return;
+  const params = new URLSearchParams({ page: String(page), size: String(state.statsSize) });
+  if ($('statsPhone').value.trim()) params.set('phone', $('statsPhone').value.trim());
+  if ($('statsType').value) params.set('aiType', $('statsType').value);
+  if ($('statsStart').value) params.set('start', $('statsStart').value);
+  if ($('statsEnd').value) params.set('end', $('statsEnd').value);
+  try {
+    const data = await api('/api/admin/ai-stats?' + params.toString());
+    state.statsPage = data.page; state.statsTotal = data.total;
+    $('statsTotal').textContent = data.summary.total;
+    $('statsSuccess').textContent = data.summary.success;
+    $('statsFailed').textContent = data.summary.failed;
+    const totalPages = Math.max(1, Math.ceil(data.total / data.size));
+    $('statsPageInfo').textContent = `第 ${data.page + 1} / ${totalPages} 页 · 共 ${data.total} 条`;
+    $('statsPrevBtn').disabled = data.page <= 0;
+    $('statsNextBtn').disabled = data.page + 1 >= totalPages;
+    $('statsRows').innerHTML = data.items.map(r => `
+      <tr>
+        <td style="white-space:nowrap">${esc(r.createdAt)}</td>
+        <td>${esc(r.phone)}</td>
+        <td>${aiTypeLabel(r.aiType)}</td>
+        <td>${r.success ? '<span class="tag on">成功</span>' : '<span class="tag err">失败</span>'}</td>
+        <td>${r.durationMs} ms</td>
+        <td>${fmtBytes(r.inputBytes)}</td>
+        <td>${fmtBytes(r.outputBytes)}</td>
+        <td class="mono">${r.inputTokens != null || r.outputTokens != null ? (r.inputTokens ?? 0) + '/' + (r.outputTokens ?? 0) : '-'}</td>
+        <td class="mono">${esc(r.traceId) || '-'}${r.requestId ? '<br>' + esc(r.requestId) : ''}</td>
+        <td class="err-cell">${r.success ? '-' : `<span class="msg">${r.errorCode != null ? '[' + r.errorCode + '] ' : ''}${esc(r.errorMessage) || ''}</span>`}</td>
+      </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted)">暂无调用记录</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+
+/* ========== 客户端心跳 ========== */
+
+let keepaliveTimer = 0;
+function startKeepaliveTimer() {
+  stopKeepaliveTimer();
+  keepaliveTimer = window.setInterval(() => loadKeepalives(state.keepalivePage), 30_000);
+}
+function stopKeepaliveTimer() {
+  if (keepaliveTimer) window.clearInterval(keepaliveTimer);
+  keepaliveTimer = 0;
+}
+
+async function loadKeepalives(page) {
+  if (page < 0) return;
+  const onlineOnly = $('keepaliveOnlineOnly').checked;
+  const params = new URLSearchParams({ onlineOnly: String(onlineOnly), page: String(page), size: String(state.keepaliveSize) });
+  const keyword = $('keepaliveKeyword').value.trim();
+  if (keyword) params.set('keyword', keyword);
+  try {
+    const data = await api('/api/admin/keepalives?' + params.toString());
+    state.keepalivePage = data.page;
+    const totalPages = Math.max(1, Math.ceil(data.total / data.size));
+    $('keepalivePageInfo').textContent = `第 ${data.page + 1} / ${totalPages} 页 · 共 ${data.total} 台客户端`;
+    $('keepalivePrevBtn').disabled = data.page <= 0;
+    $('keepaliveNextBtn').disabled = data.page + 1 >= totalPages;
+    $('keepaliveRows').innerHTML = data.items.map(k => `
+      <tr>
+        <td>${k.online ? '<span class="tag on">在线</span>' : '<span class="tag off">离线</span>'}</td>
+        <td>${k.loggedIn ? esc(k.phone) : '<span class="tag off">临时用户</span>'}</td>
+        <td class="mono" title="${esc(k.clientId)}">${esc(k.clientId.slice(0, 8))}${k.detail ? ' · ' + esc(k.detail) : ''}</td>
+        <td>${esc(k.state) || '-'}</td>
+        <td>${esc(k.appVersion) || '-'}</td>
+        <td>${esc(k.platform) || '-'}${k.osVersion ? ' ' + esc(k.osVersion) : ''}</td>
+        <td>${k.reportCount}</td>
+        <td style="white-space:nowrap">${esc(k.firstSeenAt)}</td>
+        <td style="white-space:nowrap">${esc(k.lastSeenAt)}</td>
+      </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted)">暂无心跳记录</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+
+/* ========== Agent 管理 ========== */
+
+async function loadAgents() {
+  try {
+    const data = await api('/api/admin/agents');
+    $('agentRows').innerHTML = data.map(a => `
+      <tr>
+        <td><strong>${esc(a.name)}</strong><br><span class="mono">${esc(a.key)}</span></td>
+        <td>${esc(a.model)}</td>
+        <td>${a.temperature}</td>
+        <td>${a.maxTokens}</td>
+        <td><span class="tag ${a.enabled ? 'on' : 'off'}">${a.enabled ? '启用' : '停用'}</span></td>
+        <td style="white-space:nowrap">${esc(a.updatedAt)}</td>
+        <td class="actions">
+          <button class="btn ghost small" onclick='openAgentEdit(${JSON.stringify(a)})'>编辑提示词</button>
+          <button class="btn ghost small" onclick="purgeAgentCache('${esc(a.key)}', '${esc(a.name)}')">清空缓存</button>
+          <button class="btn ghost small" onclick="resetAgent('${esc(a.key)}')">恢复默认</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">暂无Agent</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+
+function openAgentEdit(a) {
+  openModal('编辑 Agent · ' + a.name, `
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">用户提示词可用变量：${a.variables.map(v => '{' + v + '}').join(' ')}</p>
+    <div class="field"><label>模型</label><input id="aModel" maxlength="64" value="${esc(a.model)}"></div>
+    <div class="row2">
+      <div class="field"><label>温度（0-2）</label><input id="aTemp" type="number" step="0.1" min="0" max="2" value="${a.temperature}"></div>
+      <div class="field"><label>maxTokens</label><input id="aMaxTokens" type="number" min="1" max="32000" value="${a.maxTokens}"></div>
+    </div>
+    <div class="field"><label>系统提示词</label><textarea id="aSystem" rows="6" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">${esc(a.systemPrompt)}</textarea></div>
+    <div class="field"><label>用户提示词模板</label><textarea id="aUser" rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">${esc(a.userPromptTemplate)}</textarea></div>
+    <label class="switch"><input type="checkbox" id="aEnabled" ${a.enabled ? 'checked' : ''}> 启用该 Agent</label>`, async () => {
+    try {
+      await api('/api/admin/agents/' + a.key, { method: 'PUT', body: JSON.stringify({
+        systemPrompt: $('aSystem').value,
+        userPromptTemplate: $('aUser').value,
+        model: $('aModel').value.trim(),
+        temperature: Number($('aTemp').value),
+        maxTokens: Number($('aMaxTokens').value),
+        enabled: $('aEnabled').checked })});
+      closeModal(); toast('Agent 配置已保存'); loadAgents();
+    } catch (e) { $('modalError').textContent = e.message; }
+  });
+}
+
+async function purgeAgentCache(key, name) {
+  if (!confirm(`确认清空「${name}」的全部结果缓存？清空后下次调用将重新请求大模型。`)) return;
+  try {
+    const data = await api(`/api/admin/agents/results?agentKey=${encodeURIComponent(key)}`, { method: 'DELETE' });
+    toast(`已清空 ${data.deleted} 条缓存`);
+  } catch (e) { toast(e.message); }
+}
+
+async function resetAgent(key) {
+  if (!confirm('确认恢复该 Agent 的默认提示词与模型配置？')) return;
+  try { await api(`/api/admin/agents/${key}/reset`, { method: 'POST' }); toast('已恢复默认'); loadAgents(); }
+  catch (e) { toast(e.message); }
+}
+
+(async function init() {
+  if (!state.token) { showLogin(); return; }
+  try { await enterMain(); } catch { showLogin(); }
+})();
+</script>
+</body>
+</html>
