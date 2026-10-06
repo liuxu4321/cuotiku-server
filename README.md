@@ -75,6 +75,10 @@ dev 默认连接 `localhost:3306/yycuotiku`（root/root123456），可用 `MYSQL
 | `DASHSCOPE_API_KEY` | 哨兵值（Agent 返回 503） | 同左 | 通义千问 DashScope 密钥（Agent 能力） |
 | `AGENT_DAILY_LIMIT` | `20` | `20` | 每用户每 Agent 每日调用配额 |
 
+## v2 分类接口（产品 1.5.0）
+
+科目/主题体系、批量加入幂等、三态编辑、重新归类、v2 查询/抽题/能力、偏好与 capabilities，见 [docs/API.md](docs/API.md) 第 9 节与冻结契约 `../project/versions/1.5.0/records/CONTRACT.md`。入口开关 `TAXONOMY_V2_ENABLED`（默认 false）。
+
 ## 客户端接口约定
 
 完整接口文档（含字段说明、错误码、踢出机制、客户端对接清单与 curl 示例）见 [docs/API.md](docs/API.md)。
@@ -125,15 +129,15 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.17.0 -t jefferliu/yycuotiku-server:latest .
-docker push jefferliu/yycuotiku-server:1.5.0
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.21.0 -t jefferliu/yycuotiku-server:latest .
+docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```
 
 sealos 容器平台部署要点：
 
 1. 准备 MySQL 8：在 sealos 用「数据库 App」创建 MySQL 实例（或接入已有云数据库），创建 `yycuotiku` 库（`utf8mb4`）及账号。
-2. 在 sealos「应用管理 / App Launchpad」创建应用，镜像填 `jefferliu/yycuotiku-server:1.5.0`（或 `latest`），暴露端口 `80`（镜像内置 `PORT=80`）。
+2. 在 sealos「应用管理 / App Launchpad」创建应用，镜像填 `jefferliu/yycuotiku-server:1.21.0`（或 `latest`），暴露端口 `80`（镜像内置 `PORT=80`）。
 3. 在环境变量中配置 `MYSQL_HOST`（集群内服务名）、`MYSQL_USERNAME`、`MYSQL_PASSWORD`、`JWT_SECRET`、`ADMIN_PHONE`、`ADMIN_PASSWORD`、`TENCENT_SECRET_ID`、`TENCENT_SECRET_KEY`。
 4. 开启外网访问（或集群内 Ingress），客户端 `baseUrl` 指向该地址；后台管理页面为 `https://<域名>/admin/index.html`。
 

@@ -1,6 +1,6 @@
 # 盈盈错题库后台 · 接口文档
 
-版本：v1.20.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.21.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本变更记录见文末第 8 节。
 
@@ -1185,7 +1185,82 @@ curl -s -X POST $BASE/api/book/entries/practice -H "Authorization: Bearer $TOKEN
 curl -s -X DELETE $BASE/api/book/entries/<ID> -H "Authorization: Bearer $TOKEN"
 ```
 
-## 9. 版本更新记录
+## 9. v2 分类接口（产品 1.5.0 · 服务端 1.21.0）
+
+个人科目与主题体系。冻结契约见共享规划 `project/versions/1.5.0/records/CONTRACT.md`（rev 2），本节为实施口径摘要。全部 Bearer 认证；归属不符统一 `404 分类不存在`。
+
+### 9.1 能力协商
+
+```
+GET /api/v2/meta/capabilities → { taxonomyV2Supported, taxonomyV2EntryOpen, taxonomyV2Activated, serverVersion }
+```
+
+新客户端受限模式判定：`!supported || (!entryOpen && !activated)`。
+
+### 9.2 科目与主题管理
+
+```
+GET    /api/v2/subjects                        首次调用惰性幂等初始化六科（不激活）
+POST   /api/v2/subjects            { name }
+PUT    /api/v2/subjects/{id}       { name?, status?, sortOrder?, revision }
+PUT    /api/v2/subjects/reorder    { items:[{id,revision}] }   全量原子
+DELETE /api/v2/subjects/{id}                   仅无主题且无错题关联
+GET    /api/v2/subjects/{subjectId}/topics
+POST   /api/v2/subjects/{subjectId}/topics  { name }
+PUT    /api/v2/topics/{id}         { name?, status?, sortOrder?, revision }
+PUT    /api/v2/subjects/{subjectId}/topics/reorder
+DELETE /api/v2/topics/{id}                     仅无错题关联
+```
+
+SubjectDto `{id,name,systemKey|null,sortOrder,status,revision,topicCount,entryCount,updatedAt}`；TopicDto `{id,subjectId,name,sortOrder,status,revision,entryCount,updatedAt}`。名称规范化（NFC/去边距/空白折叠/小写折叠）后 1–30 码点；科目 ≤50/用户、主题 ≤200/科目；重名 `4093`；revision 冲突 `4091`（data=最新实体/全量列表）；有关联删除 `4092 存在关联数据，请改用停用`。停用科目连带禁止其主题用于新归类，但不改写子主题状态。
+
+### 9.3 错题写入 v2
+
+```
+POST /api/v2/book/entries/batch     { requestId, items[≤20]: { clientId, grade 1-12, term?, subjectId, topicId?, imageBase64, errorType?, remark?, answer? } }
+     → { results: [{ clientId, status: SUCCESS|DUPLICATE|FAILED, entryId?, code?, message? }] }
+PUT  /api/v2/book/entries/{id}      { grade?, term?, subjectId?, topicId?, errorType?, remark?, answer? }
+POST /api/v2/book/entries/reclassify { requestId, items: [{ entryId, subjectId, topicId(显式,null=清空) }] }
+```
+
+- 幂等键 `(userId, requestId, clientId)`：重试命中返回 DUPLICATE+原 entryId；逐项独立事务，部分失败不回滚已成功项；单块 ≤20 题且请求体 ≤20MB（`400 单次提交数据过大`）
+- 编辑三态：`topicId` 缺失=保留、显式 null=清空、值=设定；换科目必须显式带 topicId
+- 新归类校验父科目与主题均 ACTIVE；历史编辑可保留停用分类；归类变更不重置 practiceCount
+
+### 9.4 查询 / 抽题 / 能力 v2
+
+```
+GET  /api/v2/book/entries?grade=&term=&subjectId=&topicId=&unclassified=&errorType=&page=&size=
+POST /api/v2/book/entries/random   { grade?, term?, subjectId?, topicId?, unclassified?, counts }
+GET  /api/v2/user/ability?grade=&term=&subjectId=&topicId=&unclassified=&start=&end=
+```
+
+主题三态：`topicId`=具体 / `unclassified=true`=未分类 / 都不传=不限。EntryDtoV2 = v1 EntryDto + `{subjectId, subjectName, topicId, topicName, subjectStatus, topicStatus}`（名称恒为当前名）。排序冻结 createdAt DESC, id ASC。抽题先过滤后公平轮转（算法不变）。能力按 subjectId 分组（改名不拆组），subjects[] 含全部科目与 status，overall 对请求范围全科目完整计算。
+
+### 9.5 账号默认选择
+
+```
+GET /api/v2/preferences → { defaultSubjectId|null, defaultTopicId|null }
+PUT /api/v2/preferences { defaultSubjectId|null, defaultTopicId|null }
+```
+
+记忆最近一次成功加入的批量默认选择；校验归属+ACTIVE；读写不触发激活。
+
+### 9.6 错误码增量与旧客户端兼容
+
+`4091` revision 冲突（409）、`4092` 关联禁删（409）、`4093` 名称重复（409）、`4026` 旧客户端受限（**426**，冻结文案：通用写入阻断「此账号已启用新版科目与主题，请升级至 1.5.0 或以上版本后继续此操作。」；能力统计「旧版客户端无法完整展示当前范围的能力统计，请升级至 1.5.0 或以上版本。」）。
+
+旧客户端（v1）兼容摘要（详见 CONTRACT §10）：未激活账号 v1 行为完全不变（add 双写 subjectId）；已激活账号 v1 add 阻断 426、v1 update 涉主题/自定义科目阻断 426、不含 subject 的 update 与预设间映射放行；v1 读六科返回模板规范名、自定义原样；v1 随机/能力范围含自定义题时 426。开关 `TAXONOMY_V2_ENABLED` 只控入口/新激活，回退不清激活、不回收已激活读写。
+
+## 10. 版本更新记录
+
+### v1.21.0（2026-10-06，产品 1.5.0 服务端）
+
+- **v2 分类体系上线**（CONTRACT rev 2 实施）：user_subject/subject_topic/user_taxonomy_pref/book_add_idempotency 新表，book_entry +subject_id/topic_id，sys_user +taxonomy_v2_activated_at；六科惰性幂等初始化；历史数据按「用户+原名称」幂等回填（未知旧值建自定义科目保留，不激活）。
+- 科目/主题管理、批量加入（逐项幂等+部分失败）、三态编辑、批量重新归类、v2 查询/抽题/能力、偏好、capabilities 全量接口（第 9 节）。
+- AI Agent 提示词新增 `{topic}` 变量；entryId 路径服务端解析当前分类名称；缓存哈希含渲染提示词，改名/重新归类自动失效。
+- 旧客户端兼容矩阵与 426 冻结文案落地；`TAXONOMY_V2_ENABLED` 入口开关（默认 false）。
+- 性能实测（PERFORMANCE P1–P6/P9）全部低于预算，见 records/V150-BE-04-EVIDENCE.md。
 
 ### v1.20.0（2026-10-03）
 
