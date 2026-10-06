@@ -97,14 +97,16 @@ public class AbilityService {
         return new AbilityResponseDto(overall, subjects);
     }
 
-    private AbilityModelDto compute(List<BookEntry> entries, String subject) {
+    public record AbilityCore(int sampleSize, Double overall, List<AbilityDimensionDto> dimensions) {}
+
+    public AbilityCore computeCore(List<BookEntry> entries) {
         List<AbilityDimensionDto> dims = new ArrayList<>();
         if (entries.isEmpty()) {
             for (DimSpec spec : TYPE_DIMS) {
                 dims.add(new AbilityDimensionDto(spec.key(), spec.label(), null, 0, 0, 0));
             }
             dims.add(new AbilityDimensionDto(DILIGENCE.key(), DILIGENCE.label(), null, 0, 0, 0));
-            return new AbilityModelDto(subject, 0, null, dims);
+            return new AbilityCore(0, null, dims);
         }
         long nowMillis = System.currentTimeMillis();
         double[] w = new double[TYPE_DIMS.size()];
@@ -146,7 +148,12 @@ public class AbilityService {
                 diligence, entries.size(),
                 entries.stream().mapToInt(BookEntry::getPracticeCount).sum(), round2(pAll)));
         double overall = Math.round(scoreSum * 10.0 / dims.size()) / 10.0;
-        return new AbilityModelDto(subject, entries.size(), overall, dims);
+        return new AbilityCore(entries.size(), overall, dims);
+    }
+
+    private AbilityModelDto compute(List<BookEntry> entries, String subject) {
+        AbilityCore core = computeCore(entries);
+        return new AbilityModelDto(subject, core.sampleSize(), core.overall(), core.dimensions());
     }
 
     private static double round2(double value) {

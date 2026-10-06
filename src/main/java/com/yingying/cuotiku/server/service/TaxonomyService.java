@@ -37,12 +37,15 @@ public class TaxonomyService {
     private final UserSubjectRepository subjectRepository;
     private final UserRepository userRepository;
     private final AppProperties properties;
+    private final org.springframework.beans.factory.ObjectProvider<TaxonomyService> self;
 
     public TaxonomyService(UserSubjectRepository subjectRepository, UserRepository userRepository,
-                           AppProperties properties) {
+                           AppProperties properties,
+                           org.springframework.beans.factory.ObjectProvider<TaxonomyService> self) {
         this.subjectRepository = subjectRepository;
         this.userRepository = userRepository;
         this.properties = properties;
+        this.self = self;
     }
 
     public boolean entryOpen() {
@@ -53,30 +56,49 @@ public class TaxonomyService {
         return properties.serverVersion() == null ? "unknown" : properties.serverVersion();
     }
 
-    /** 惰性幂等初始化六科；不激活。并发冲突逐行吸收（CONTRACT §8）。 */
-    @Transactional
-    public List<UserSubject> initSubjects(Long userId) {
-        List<UserSubject> existing = subjectRepository.findByUserIdOrderBySortOrderAscIdAsc(userId);
-        if (existing.size() >= PRESETS.size() && existing.stream().allMatch(s -> s.getSystemKey() != null)) {
-            return existing;
-        }
+    /**
+     * 惰性幂等初始化六科；不激活。每个科目独立事务（REQUIRES_NEW），
+     * 唯一键冲突逐行吸收、死锁整科重试（CONTRACT §8）；失败不污染外层会话。
+     */
+    public List<UserSubject> initSubjectsWithRetry(Long userId) {
         for (Template template : PRESETS) {
-            Optional<UserSubject> found = subjectRepository.findByUserIdAndSystemKey(userId, template.systemKey());
-            if (found.isPresent()) {
-                continue;
-            }
-            UserSubject subject = new UserSubject();
-            subject.setUserId(userId);
-            subject.setName(template.name());
-            subject.setNormalizedName(NameNormalizer.normalized(template.name()));
-            subject.setSystemKey(template.systemKey());
-            subject.setSortOrder(template.sortOrder());
-            try {
-                subjectRepository.saveAndFlush(subject);
-            } catch (DataIntegrityViolationException e) {
-                log.debug("[分类] 并发初始化吸收唯一键冲突 userId={} systemKey={}", userId, template.systemKey());
+            for (int attempt = 0; attempt < 3; attempt += 1) {
+                try {
+                    self.getObject().initOne(userId, template);
+                    break;
+                } catch (DataIntegrityViolationException e) {
+                    log.debug("[分类] 并发初始化吸收唯一键冲突 userId={} systemKey={}",
+                            userId, template.systemKey());
+                    break;
+                } catch (org.springframework.dao.DeadlockLoserDataAccessException
+                         | org.springframework.dao.CannotAcquireLockException e) {
+                    log.debug("[分类] 并发初始化锁冲突重试 userId={} systemKey={} attempt={}",
+                            userId, template.systemKey(), attempt);
+                    if (attempt == 2) {
+                        throw e;
+                    }
+                }
             }
         }
+        return self.getObject().findAll(userId);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void initOne(Long userId, Template template) {
+        if (subjectRepository.findByUserIdAndSystemKey(userId, template.systemKey()).isPresent()) {
+            return;
+        }
+        UserSubject subject = new UserSubject();
+        subject.setUserId(userId);
+        subject.setName(template.name());
+        subject.setNormalizedName(NameNormalizer.normalized(template.name()));
+        subject.setSystemKey(template.systemKey());
+        subject.setSortOrder(template.sortOrder());
+        subjectRepository.saveAndFlush(subject);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserSubject> findAll(Long userId) {
         return subjectRepository.findByUserIdOrderBySortOrderAscIdAsc(userId);
     }
 

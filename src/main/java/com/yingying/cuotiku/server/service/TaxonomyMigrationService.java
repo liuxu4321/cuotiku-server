@@ -52,7 +52,7 @@ public class TaxonomyMigrationService {
         long subjectsCreated = 0;
         long entriesUpdated = 0;
         for (Long userId : userIds) {
-            taxonomyService.initSubjects(userId);
+            taxonomyService.initSubjectsWithRetry(userId);
             for (String rawName : entryRepository.findUnmigratedSubjectNames(userId)) {
                 if (rawName == null || rawName.isBlank()) {
                     continue;

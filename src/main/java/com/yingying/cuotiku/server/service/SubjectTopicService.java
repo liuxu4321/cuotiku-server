@@ -51,7 +51,7 @@ public class SubjectTopicService {
 
     @Transactional
     public List<SubjectDto> listSubjects(User user) {
-        taxonomyService.initSubjects(user.getId());
+        taxonomyService.initSubjectsWithRetry(user.getId());
         List<UserSubject> subjects = subjectRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId());
         Map<Long, Long> topicCounts = group(topicRepository.countGroupedBySubject(user.getId()));
         Map<Long, Long> entryCounts = group(entryRepository.countGroupedBySubjectId(user.getId()));

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.util.List;
+import java.util.Map;
 
 public class BookV2Dto {
 
@@ -62,6 +63,37 @@ public class BookV2Dto {
     public record ReclassifyResultDto(String entryId, String status, Integer code, String message) {}
 
     public record ReclassifyResponse(List<ReclassifyResultDto> results) {}
+
+    public record RandomV2Request(
+            @Min(value = 1, message = "年级取值1-12")
+            @Max(value = 12, message = "年级取值1-12")
+            Integer grade,
+            @Min(value = 1, message = "学期取值1或2")
+            @Max(value = 2, message = "学期取值1或2")
+            Integer term,
+            Long subjectId,
+            Long topicId,
+            Boolean unclassified,
+            @NotEmpty(message = "请指定各错误类型的抽取数量")
+            Map<String, @NotNull Integer> counts) {}
+
+    public record RandomV2Response(
+            List<EntryDtoV2> items,
+            int requested,
+            int selected,
+            Map<String, com.yingying.cuotiku.server.dto.BookDto.TypeStat> byType) {}
+
+    public record AbilityModelV2(
+            Long subjectId,
+            String subjectName,
+            String status,
+            int sampleSize,
+            Double overall,
+            List<com.yingying.cuotiku.server.dto.BookDto.AbilityDimensionDto> dimensions) {}
+
+    public record AbilityV2Response(
+            AbilityModelV2 overall,
+            List<AbilityModelV2> subjects) {}
 
     public record EntryDtoV2(
             String id,

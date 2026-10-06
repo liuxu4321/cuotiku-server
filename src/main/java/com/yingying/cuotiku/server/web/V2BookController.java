@@ -1,19 +1,25 @@
 package com.yingying.cuotiku.server.web;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.yingying.cuotiku.server.dto.AdminUserDto.PageResponse;
 import com.yingying.cuotiku.server.dto.ApiResponse;
 import com.yingying.cuotiku.server.dto.BookV2Dto.BatchAddRequest;
-import com.yingying.cuotiku.server.dto.BookV2Dto.BatchAddResponse;
 import com.yingying.cuotiku.server.dto.BookV2Dto.EntryDtoV2;
+import com.yingying.cuotiku.server.dto.BookV2Dto.RandomV2Request;
+import com.yingying.cuotiku.server.dto.BookV2Dto.RandomV2Response;
+import com.yingying.cuotiku.server.dto.BookV2Dto.BatchAddResponse;
 import com.yingying.cuotiku.server.dto.BookV2Dto.ReclassifyRequest;
 import com.yingying.cuotiku.server.dto.BookV2Dto.ReclassifyResponse;
 import com.yingying.cuotiku.server.security.AuthenticatedUser;
+import com.yingying.cuotiku.server.service.BookV2QueryService;
 import com.yingying.cuotiku.server.service.BookV2Service;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,9 +32,33 @@ public class V2BookController {
     private static final long MAX_BATCH_BYTES = 20L * 1024 * 1024;
 
     private final BookV2Service bookV2Service;
+    private final BookV2QueryService queryService;
 
-    public V2BookController(BookV2Service bookV2Service) {
+    public V2BookController(BookV2Service bookV2Service, BookV2QueryService queryService) {
         this.bookV2Service = bookV2Service;
+        this.queryService = queryService;
+    }
+
+    @GetMapping
+    public ApiResponse<PageResponse<EntryDtoV2>> list(
+            @RequestParam(required = false) Integer grade,
+            @RequestParam(required = false) Integer term,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Long topicId,
+            @RequestParam(required = false) Boolean unclassified,
+            @RequestParam(required = false) String errorType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal AuthenticatedUser principal) {
+        BookV2QueryService.Scope scope = BookV2QueryService.parseScope(
+                grade, term, subjectId, topicId, unclassified, errorType, null, null);
+        return ApiResponse.ok(queryService.list(principal.user(), scope, page, size));
+    }
+
+    @PostMapping("/random")
+    public ApiResponse<RandomV2Response> random(@Valid @RequestBody RandomV2Request request,
+                                                @AuthenticationPrincipal AuthenticatedUser principal) {
+        return ApiResponse.ok(queryService.random(principal.user(), request));
     }
 
     @PostMapping("/batch")

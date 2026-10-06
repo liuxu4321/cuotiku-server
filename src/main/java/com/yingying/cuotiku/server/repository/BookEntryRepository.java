@@ -43,6 +43,43 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
     @Query("select e.subjectId, count(e) from BookEntry e where e.userId = :userId and e.subjectId is not null group by e.subjectId")
     List<Object[]> countGroupedBySubjectId(@Param("userId") Long userId);
 
+    String V2_FILTER = """
+            where e.userId = :userId
+              and (:grade is null or e.grade = :grade)
+              and (:term is null or e.term = :term)
+              and (:subjectId is null or e.subjectId = :subjectId)
+              and (:errorType is null or e.errorType = :errorType)
+              and (:topicMode = 0 or (:topicMode = 1 and e.topicId = :topicId) or (:topicMode = 2 and e.topicId is null))
+              and (:start is null or e.createdAt >= :start)
+              and (:end is null or e.createdAt <= :end)
+            """;
+
+    @Query("select e from BookEntry e " + V2_FILTER)
+    Page<BookEntry> searchV2(@Param("userId") Long userId,
+                             @Param("grade") Integer grade,
+                             @Param("term") Integer term,
+                             @Param("subjectId") Long subjectId,
+                             @Param("errorType") String errorType,
+                             @Param("topicMode") int topicMode,
+                             @Param("topicId") Long topicId,
+                             @Param("start") Instant start,
+                             @Param("end") Instant end,
+                             Pageable pageable);
+
+    @Query("select e from BookEntry e " + V2_FILTER)
+    List<BookEntry> listV2(@Param("userId") Long userId,
+                           @Param("grade") Integer grade,
+                           @Param("term") Integer term,
+                           @Param("subjectId") Long subjectId,
+                           @Param("errorType") String errorType,
+                           @Param("topicMode") int topicMode,
+                           @Param("topicId") Long topicId,
+                           @Param("start") Instant start,
+                           @Param("end") Instant end);
+
+    @Query("select count(e) from BookEntry e where e.userId = :userId and e.subjectId in :subjectIds")
+    long countByUserIdAndSubjectIdIn(@Param("userId") Long userId, @Param("subjectIds") Collection<Long> subjectIds);
+
     @Query("select e.topicId, count(e) from BookEntry e where e.userId = :userId and e.topicId is not null group by e.topicId")
     List<Object[]> countGroupedByTopicId(@Param("userId") Long userId);
 
