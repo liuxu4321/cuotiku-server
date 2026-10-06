@@ -7,8 +7,6 @@ import com.yingying.cuotiku.server.repository.BookEntryRepository;
 import com.yingying.cuotiku.server.repository.UserSubjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Bean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,21 +42,6 @@ public class TaxonomyMigrationService {
         this.idempotencyRepository = idempotencyRepository;
         this.taxonomyService = taxonomyService;
         this.properties = properties;
-    }
-
-    @Bean
-    public ApplicationRunner taxonomyBackfillRunner() {
-        return args -> {
-            if (properties.taxonomy() != null && !properties.taxonomy().backfillOnStartup()) {
-                log.info("[迁移] backfill-on-startup=false，跳过启动回填");
-                return;
-            }
-            BackfillSummary summary = backfillAll();
-            if (summary.users() > 0) {
-                log.info("[迁移] 历史回填完成 用户={} 科目新建={} 题目回填={}",
-                        summary.users(), summary.subjectsCreated(), summary.entriesUpdated());
-            }
-        };
     }
 
     public record BackfillSummary(long users, long subjectsCreated, long entriesUpdated) {}
