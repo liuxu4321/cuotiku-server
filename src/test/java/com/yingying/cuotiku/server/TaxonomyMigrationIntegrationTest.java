@@ -178,8 +178,8 @@ class TaxonomyMigrationIntegrationTest extends AbstractIntegrationTest {
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            pool.submit(() -> taxonomyService.initSubjects(uid));
-            pool.submit(() -> taxonomyService.initSubjects(uid));
+            pool.submit(() -> taxonomyService.initSubjectsWithRetry(uid));
+            pool.submit(() -> taxonomyService.initSubjectsWithRetry(uid));
             pool.shutdown();
             assertTrue(pool.awaitTermination(30, TimeUnit.SECONDS));
         } finally {
