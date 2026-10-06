@@ -1261,6 +1261,7 @@ PUT /api/v2/preferences { defaultSubjectId|null, defaultTopicId|null }
 - AI Agent 提示词新增 `{topic}` 变量；entryId 路径服务端解析当前分类名称；缓存哈希含渲染提示词，改名/重新归类自动失效。
 - 旧客户端兼容矩阵与 426 冻结文案落地；`TAXONOMY_V2_ENABLED` 入口开关（默认 false）。
 - 性能实测（PERFORMANCE P1–P6/P9）全部低于预算，见 records/V150-BE-04-EVIDENCE.md。
+- **补遗（前端复核 GAP-150-FE-P1 关闭）**：`GET/PUT /api/v2/preferences` 账号默认选择接口实现补齐（9.5 节）：写入校验归属+ACTIVE（含父科目）、读写不触发激活、开关关闭且未激活时 PUT 403；客户端既有优雅降级无需改动。
 
 ### v1.20.0（2026-10-03）
 

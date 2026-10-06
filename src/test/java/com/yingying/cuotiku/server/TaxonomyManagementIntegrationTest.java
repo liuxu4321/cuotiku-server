@@ -222,6 +222,62 @@ class TaxonomyManagementIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     @Order(4)
+    void preferencesCrudAndValidation() throws Exception {
+        JsonNode initial = exchange("/api/v2/preferences", HttpMethod.GET, null, tokenA);
+        assertEquals(0, initial.path("code").asInt());
+        assertTrue(initial.path("data").path("defaultSubjectId").isNull());
+
+        JsonNode newTopic = exchange("/api/v2/subjects/" + subjectMathId + "/topics", HttpMethod.POST,
+                Map.of("name", "偏好主题"), tokenA);
+        assertEquals(0, newTopic.path("code").asInt());
+        Long activeTopicId = newTopic.path("data").path("id").asLong();
+
+        JsonNode put = exchange("/api/v2/preferences", HttpMethod.PUT,
+                Map.of("defaultSubjectId", subjectMathId, "defaultTopicId", activeTopicId), tokenA);
+        assertEquals(0, put.path("code").asInt(), () -> "pref put failed: " + put);
+        assertEquals(subjectMathId.longValue(), put.path("data").path("defaultSubjectId").asLong());
+
+        JsonNode get = exchange("/api/v2/preferences", HttpMethod.GET, null, tokenA);
+        assertEquals(activeTopicId.longValue(), get.path("data").path("defaultTopicId").asLong());
+
+        // 他人科目 → 404
+        JsonNode subjectsB = exchange("/api/v2/subjects", HttpMethod.GET, null, tokenB);
+        Long bSubject = subjectsB.path("data").get(0).path("id").asLong();
+        assertEquals(404, exchange("/api/v2/preferences", HttpMethod.PUT,
+                Map.of("defaultSubjectId", bSubject), tokenA).path("code").asInt());
+
+        // 停用科目 → 400
+        JsonNode list = exchange("/api/v2/subjects", HttpMethod.GET, null, tokenA);
+        long rev = 0;
+        for (JsonNode s2 : list.path("data")) {
+            if (s2.path("id").asLong() == subjectMathId) rev = s2.path("revision").asInt();
+        }
+        exchange("/api/v2/subjects/" + subjectMathId, HttpMethod.PUT,
+                Map.of("status", "DISABLED", "revision", rev), tokenA);
+        assertEquals(400, exchange("/api/v2/preferences", HttpMethod.PUT,
+                Map.of("defaultSubjectId", subjectMathId), tokenA).path("code").asInt());
+        // 主题不属于默认科目 → 400
+        assertEquals(400, exchange("/api/v2/preferences", HttpMethod.PUT,
+                Map.of("defaultSubjectId", englishSubjectId(), "defaultTopicId", activeTopicId), tokenA)
+                .path("code").asInt());
+        // 只有主题没有科目 → 400
+        assertEquals(400, exchange("/api/v2/preferences", HttpMethod.PUT,
+                Map.of("defaultTopicId", activeTopicId), tokenA).path("code").asInt());
+        // 清空
+        JsonNode cleared = exchange("/api/v2/preferences", HttpMethod.PUT, Map.of(), tokenA);
+        assertEquals(0, cleared.path("code").asInt());
+        assertTrue(cleared.path("data").path("defaultSubjectId").isNull());
+    }
+
+    private long englishSubjectId() throws Exception {
+        for (JsonNode s2 : exchange("/api/v2/subjects", HttpMethod.GET, null, tokenA).path("data")) {
+            if ("english".equals(s2.path("systemKey").asText())) return s2.path("id").asLong();
+        }
+        throw new IllegalStateException("english subject missing");
+    }
+
+    @Test
+    @Order(5)
     void managementNotBoundToAiMembership() throws Exception {
         // 普通无 AI 权益用户可管理个人分类（AC19）
         JsonNode list = exchange("/api/v2/subjects", HttpMethod.GET, null, tokenB);

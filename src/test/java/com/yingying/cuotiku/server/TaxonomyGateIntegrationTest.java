@@ -92,6 +92,12 @@ class TaxonomyGateIntegrationTest extends AbstractIntegrationTest {
         JsonNode write = exchange("/api/v2/subjects", HttpMethod.POST, Map.of("name", "美术"), token);
         assertEquals(403, write.path("code").asInt());
         assertEquals("分类功能未开放", write.path("message").asText());
+
+        // 偏好：读可用且不激活，写 403
+        assertEquals(0, exchange("/api/v2/preferences", HttpMethod.GET, null, token).path("code").asInt());
+        assertEquals(403, exchange("/api/v2/preferences", HttpMethod.PUT, Map.of(), token).path("code").asInt());
+        assertNull(userRepository.findByPhone("13970001111").orElseThrow().getTaxonomyV2ActivatedAt(),
+                "偏好读写不触发激活");
     }
 
     @Test

@@ -58,6 +58,10 @@ public class TaxonomyDto {
             @NotNull(message = "revision不能为空")
             Integer revision) {}
 
+    public record PreferenceDto(Long defaultSubjectId, Long defaultTopicId) {}
+
+    public record PreferenceRequest(Long defaultSubjectId, Long defaultTopicId) {}
+
     public record ReorderRequest(
             @NotEmpty(message = "排序列表不能为空")
             @Size(max = 200, message = "排序列表过大")
