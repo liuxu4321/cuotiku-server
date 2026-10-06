@@ -18,20 +18,22 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ApiResponse<Void>> handleApi(ApiException e) {
+    public ResponseEntity<ApiResponse<Object>> handleApi(ApiException e) {
         log.debug("[异常处理] 业务异常 code={} message={}", e.getCode(), e.getMessage());
         HttpStatus status = switch (e.getCode()) {
             case 400 -> HttpStatus.BAD_REQUEST;
             case 401, 4011 -> HttpStatus.UNAUTHORIZED;
             case 403 -> HttpStatus.FORBIDDEN;
             case 404 -> HttpStatus.NOT_FOUND;
-            case 409 -> HttpStatus.CONFLICT;
+            case 409, 4091, 4092, 4093 -> HttpStatus.CONFLICT;
+            case 4026 -> HttpStatus.UPGRADE_REQUIRED;
             case 429 -> HttpStatus.TOO_MANY_REQUESTS;
             case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
             case 504 -> HttpStatus.GATEWAY_TIMEOUT;
             default -> HttpStatus.BAD_GATEWAY;
         };
-        return ResponseEntity.status(status).body(ApiResponse.error(e.getCode(), e.getMessage()));
+        return ResponseEntity.status(status)
+                .body(new ApiResponse<>(e.getCode(), e.getMessage(), e.getData()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

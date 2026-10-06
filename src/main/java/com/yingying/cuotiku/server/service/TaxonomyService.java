@@ -3,6 +3,7 @@ package com.yingying.cuotiku.server.service;
 import com.yingying.cuotiku.server.config.AppProperties;
 import com.yingying.cuotiku.server.entity.User;
 import com.yingying.cuotiku.server.entity.UserSubject;
+import com.yingying.cuotiku.server.repository.UserRepository;
 import com.yingying.cuotiku.server.repository.UserSubjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +35,13 @@ public class TaxonomyService {
             new Template("biology", "生物", 60));
 
     private final UserSubjectRepository subjectRepository;
+    private final UserRepository userRepository;
     private final AppProperties properties;
 
-    public TaxonomyService(UserSubjectRepository subjectRepository, AppProperties properties) {
+    public TaxonomyService(UserSubjectRepository subjectRepository, UserRepository userRepository,
+                           AppProperties properties) {
         this.subjectRepository = subjectRepository;
+        this.userRepository = userRepository;
         this.properties = properties;
     }
 
@@ -83,6 +87,7 @@ public class TaxonomyService {
             return;
         }
         user.setTaxonomyV2ActivatedAt(Instant.now());
+        userRepository.save(user);
         log.info("[分类] 账号激活 taxonomyV2 phone={} userId={}", user.getPhone(), user.getId());
     }
 

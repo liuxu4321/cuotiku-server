@@ -25,4 +25,7 @@ public interface SubjectTopicRepository extends JpaRepository<SubjectTopic, Long
 
     @Query("select coalesce(max(t.sortOrder), 0) from SubjectTopic t where t.subjectId = :subjectId")
     int maxSortOrder(@Param("subjectId") Long subjectId);
+
+    @Query("select t.subjectId, count(t) from SubjectTopic t where t.userId = :userId group by t.subjectId")
+    List<Object[]> countGroupedBySubject(@Param("userId") Long userId);
 }
