@@ -472,7 +472,7 @@ public class BookService {
                 lastAt);
     }
 
-    private Map<String, BookPracticeRecordRepository.EntryStat> statMap(Collection<String> ids) {
+    public Map<String, BookPracticeRecordRepository.EntryStat> statMap(Collection<String> ids) {
         if (ids == null || ids.isEmpty()) {
             return Map.of();
         }
@@ -491,6 +491,17 @@ public class BookService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    public record PreparedImage(byte[] bytes, int width, int height, String format, byte[] thumb, byte[] zip) {}
+
+    public PreparedImage prepareImage(String imageBase64) {
+        byte[] imageBytes = com.yingying.cuotiku.server.ai.ImageUtil.autoOrient(decodeBase64(imageBase64));
+        ImageMeta meta = readImageMeta(imageBytes);
+        String id = UUID.randomUUID().toString();
+        byte[] thumb = renderThumb(imageBytes);
+        byte[] zip = buildZip(id, meta.format(), imageBytes, thumb);
+        return new PreparedImage(imageBytes, meta.width(), meta.height(), meta.format(), thumb, zip);
     }
 
     private byte[] decodeBase64(String value) {
