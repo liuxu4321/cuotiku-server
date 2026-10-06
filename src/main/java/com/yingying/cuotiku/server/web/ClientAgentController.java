@@ -5,11 +5,13 @@ import com.yingying.cuotiku.server.dto.AgentDto.*;
 import com.yingying.cuotiku.server.dto.ApiResponse;
 import com.yingying.cuotiku.server.dto.AuthDto.UserDto;
 import com.yingying.cuotiku.server.dto.BookDto.EntryDto;
+import com.yingying.cuotiku.server.dto.BookV2Dto.EntryDtoV2;
 import com.yingying.cuotiku.server.entity.User;
 import com.yingying.cuotiku.server.security.AuthenticatedUser;
 import com.yingying.cuotiku.server.service.AgentConfigService;
 import com.yingying.cuotiku.server.service.AgentRuntimeService;
 import com.yingying.cuotiku.server.service.BookService;
+import com.yingying.cuotiku.server.service.BookV2Service;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.MimeType;
@@ -34,15 +36,17 @@ import java.util.Map;
 @RequestMapping("/api/agent")
 public class ClientAgentController {
 
-    private static final List<String> SUBJECTS = List.of("语文", "数学", "英语");
     private static final List<String> ERROR_TYPES = List.of("马虎", "不会", "概念不清", "其他");
 
     private final AgentRuntimeService agentRuntimeService;
     private final BookService bookService;
+    private final BookV2Service bookV2Service;
 
-    public ClientAgentController(AgentRuntimeService agentRuntimeService, BookService bookService) {
+    public ClientAgentController(AgentRuntimeService agentRuntimeService, BookService bookService,
+                                 BookV2Service bookV2Service) {
         this.agentRuntimeService = agentRuntimeService;
         this.bookService = bookService;
+        this.bookV2Service = bookV2Service;
     }
 
     private record ResolvedInput(byte[] imageBytes, MimeType mime, Map<String, String> vars) {}
@@ -109,7 +113,8 @@ public class ClientAgentController {
 
     private Map<String, String> baseVars(RunRequest request) {
         Map<String, String> vars = new HashMap<>();
-        vars.put("subject", request.subject() == null ? "" : request.subject());
+        vars.put("subject", request.subject() == null ? "" : request.subject().trim());
+        vars.put("topic", "");
         vars.put("grade", request.grade() == null ? "" : String.valueOf(request.grade()));
         vars.put("term", request.term() == null ? "不限" : (request.term() == 1 ? "上学期" : "下学期"));
         vars.put("errorType", request.errorType() == null ? "其他" : request.errorType());
@@ -120,8 +125,12 @@ public class ClientAgentController {
         if (request.entryId() != null && !request.entryId().isBlank()) {
             EntryDto entry = bookService.get(user.getId(), request.entryId().trim());
             BookService.ImagePayload payload = bookService.getImage(user.getId(), entry.id(), "original");
+            // 服务端解析当前分类名称（改名/重新归类后即时生效），不接受客户端伪造上下文
+            EntryDtoV2 v2 = bookV2Service.toV2Dto(
+                    bookService.requireForAgent(user.getId(), entry.id()));
             Map<String, String> vars = new HashMap<>();
-            vars.put("subject", entry.subject());
+            vars.put("subject", v2.subjectName() == null ? v2.subject() : v2.subjectName());
+            vars.put("topic", v2.topicName() == null ? "" : v2.topicName());
             vars.put("grade", String.valueOf(entry.grade()));
             vars.put("term", entry.term() == null ? "不限" : (entry.term() == 1 ? "上学期" : "下学期"));
             vars.put("errorType", entry.errorType());
@@ -130,8 +139,9 @@ public class ClientAgentController {
         if (request.imageBase64() == null || request.imageBase64().isBlank()) {
             throw ApiException.badRequest("请提供 entryId 或 imageBase64");
         }
-        if (request.subject() == null || !SUBJECTS.contains(request.subject())) {
-            throw ApiException.badRequest("科目只能是：" + String.join("、", SUBJECTS));
+        if (request.subject() == null || request.subject().isBlank()
+                || request.subject().trim().length() > 30) {
+            throw ApiException.badRequest("请提供有效科目名称（1-30 字）");
         }
         if (request.grade() == null) {
             throw ApiException.badRequest("请提供年级");

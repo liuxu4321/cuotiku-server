@@ -29,8 +29,8 @@ public class AgentConfigService {
     public static final String EXPLAIN = "EXPLAIN";
 
     public static final Map<String, List<String>> VARIABLES = Map.of(
-            ANALOGY, List.of("subject", "grade", "term", "errorType", "count"),
-            EXPLAIN, List.of("subject", "grade", "term", "errorType"));
+            ANALOGY, List.of("subject", "topic", "grade", "term", "errorType", "count"),
+            EXPLAIN, List.of("subject", "topic", "grade", "term", "errorType"));
 
     private static final Map<String, String[]> DEFAULTS = Map.of(
             ANALOGY, new String[]{"举一反三", "qwen-vl-max",
@@ -39,7 +39,7 @@ public class AgentConfigService {
                     要求：1. 变式题必须与原题考查同一知识点，但情境与数字不同；2. 难度梯度递进；3. 语言符合学生年级；\
                     4. 只输出合法 JSON，不要输出任何解释性文字或代码块标记。""",
                     """
-                    科目：{subject}；年级：{grade}年级；学期：{term}；学生错因：{errorType}。
+                    科目：{subject}；主题：{topic}；年级：{grade}年级；学期：{term}；学生错因：{errorType}。
                     附件图片是一道错题。请基于该错题生成 {count} 道举一反三变式题。
                     只输出如下 JSON：
                     {"items":[{"stem":"题干","options":["选项A","选项B"],"answer":"答案","analysis":"解析","difficulty":1}]}
@@ -49,7 +49,7 @@ public class AgentConfigService {
                     你是一位耐心细致的名师，负责为学生精讲错题：先讲思路，再分步讲解，最后归纳知识点与易错提醒。\
                     要求：1. 讲解贴合学生年级认知；2. 步骤清晰、每步一句话要点；3. 只输出合法 JSON，不要输出任何解释性文字或代码块标记。""",
                     """
-                    科目：{subject}；年级：{grade}年级；学期：{term}；学生错因：{errorType}。
+                    科目：{subject}；主题：{topic}；年级：{grade}年级；学期：{term}；学生错因：{errorType}。
                     附件图片是一道错题。请精讲这道题。
                     只输出如下 JSON：
                     {"analysis":"整体思路","steps":[{"title":"步骤标题","content":"步骤讲解"}],"knowledgePoints":["知识点"],"commonMistakes":["易错点"],"summary":"一句话总结"}"""});

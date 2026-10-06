@@ -8,8 +8,11 @@ import com.yingying.cuotiku.server.dto.BookDto.PracticeRecordRequest;
 import com.yingying.cuotiku.server.entity.BookEntry;
 import com.yingying.cuotiku.server.entity.BookPracticeRecord;
 import com.yingying.cuotiku.server.entity.User;
+import com.yingying.cuotiku.server.entity.UserSubject;
 import com.yingying.cuotiku.server.repository.BookEntryRepository;
 import com.yingying.cuotiku.server.repository.BookPracticeRecordRepository;
+import com.yingying.cuotiku.server.repository.UserRepository;
+import com.yingying.cuotiku.server.repository.UserSubjectRepository;
 import com.yingying.cuotiku.server.storage.BookStorage;
 import com.yingying.cuotiku.server.web.ApiException;
 import org.slf4j.Logger;
@@ -52,18 +55,30 @@ public class BookService {
     private final BookEntryRepository repository;
     private final BookStorage storage;
     private final BookPracticeRecordRepository practiceRepository;
+    private final UserSubjectRepository subjectRepository;
+    private final UserRepository userRepository;
+    private final TaxonomyService taxonomyService;
 
     public BookService(BookEntryRepository repository, BookStorage storage,
-                       BookPracticeRecordRepository practiceRepository) {
+                       BookPracticeRecordRepository practiceRepository,
+                       UserSubjectRepository subjectRepository,
+                       UserRepository userRepository,
+                       TaxonomyService taxonomyService) {
         this.repository = repository;
         this.storage = storage;
         this.practiceRepository = practiceRepository;
+        this.subjectRepository = subjectRepository;
+        this.userRepository = userRepository;
+        this.taxonomyService = taxonomyService;
     }
 
     public record ImagePayload(byte[] bytes, String contentType) {}
 
     @Transactional
     public EntryDto addEntry(AddEntryRequest request, User user) {
+        if (taxonomyService.activated(user)) {
+            throw new ApiException(4026, TaxonomyService.UPGRADE_MESSAGE);
+        }
         if (log.isDebugEnabled()) {
             log.debug("[错题] 添加开始 phone={} grade={} term={} subject={} errorType={} base64长度={}",
                     user.getPhone(), request.grade(), request.term(), request.subject(), request.errorType(),
@@ -109,6 +124,8 @@ public class BookService {
         entry.setGrade(request.grade());
         entry.setTerm(request.term());
         entry.setSubject(request.subject());
+        UserSubject preset = presetSubject(user, request.subject());
+        entry.setSubjectId(preset == null ? null : preset.getId());
         entry.setErrorType(errorType);
         entry.setCreatedAt(now);
         entry.setWidth(meta.width());
@@ -330,6 +347,22 @@ public class BookService {
             if (!SUBJECTS.contains(request.subject())) {
                 throw ApiException.badRequest("科目只能是：" + String.join("、", SUBJECTS));
             }
+            User owner = userRepository.findById(userId).orElseThrow();
+            if (taxonomyService.activated(owner)) {
+                UserSubject orig = entry.getSubjectId() == null ? null
+                        : subjectRepository.findById(entry.getSubjectId()).orElse(null);
+                boolean origCustom = orig != null && orig.getSystemKey() == null;
+                UserSubject target = presetSubject(owner, request.subject());
+                if (entry.getTopicId() != null || origCustom || target == null) {
+                    throw new ApiException(4026, TaxonomyService.UPGRADE_MESSAGE);
+                }
+                entry.setSubjectId(target.getId());
+            } else {
+                UserSubject target = presetSubject(owner, request.subject());
+                if (target != null) {
+                    entry.setSubjectId(target.getId());
+                }
+            }
             entry.setSubject(request.subject());
         }
         if (request.errorType() != null && !request.errorType().isBlank()) {
@@ -384,6 +417,16 @@ public class BookService {
         }
         String subject = request.subject() == null || request.subject().isBlank() ? null : request.subject();
 
+        User owner = userRepository.findById(userId).orElseThrow();
+        if (taxonomyService.activated(owner) && subject == null) {
+            List<Long> customIds = subjectRepository.findByUserIdAndSystemKeyIsNull(userId).stream()
+                    .map(UserSubject::getId).toList();
+            if (!customIds.isEmpty() && repository.countCustomInScope(userId, customIds,
+                    request.grade(), request.term(), null, null) > 0) {
+                throw new ApiException(4026, TaxonomyService.UPGRADE_MESSAGE);
+            }
+        }
+
         List<EntryDto> items = new ArrayList<>();
         Map<String, TypeStat> byType = new LinkedHashMap<>();
         int totalSelected = 0;
@@ -437,16 +480,37 @@ public class BookService {
                 id, userId, entry.getObjectKey(), records);
     }
 
+    public BookEntry requireForAgent(Long userId, String id) {
+        return require(userId, id);
+    }
+
     private BookEntry require(Long userId, String id) {
         return repository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> ApiException.notFound("错题不存在：" + id));
     }
 
     private EntryDto toDto(BookEntry entry) {
-        return toDto(entry, statMap(List.of(entry.getId())).get(entry.getId()));
+        return toDto(entry, statMap(List.of(entry.getId())).get(entry.getId()), v1SubjectName(entry, null));
     }
 
-    private static EntryDto toDto(BookEntry entry, BookPracticeRecordRepository.EntryStat stat) {
+    /** CONTRACT §10：六科题返回 systemKey 规范模板名（改名不回传），自定义题原样返回当前名称。 */
+    private String v1SubjectName(BookEntry entry, Map<Long, UserSubject> subjectMap) {
+        if (entry.getSubjectId() == null) {
+            return entry.getSubject();
+        }
+        UserSubject subject = subjectMap != null ? subjectMap.get(entry.getSubjectId())
+                : subjectRepository.findById(entry.getSubjectId()).orElse(null);
+        if (subject == null) {
+            return entry.getSubject();
+        }
+        if (subject.getSystemKey() != null) {
+            String preset = TaxonomyService.presetName(subject.getSystemKey());
+            return preset == null ? subject.getName() : preset;
+        }
+        return subject.getName();
+    }
+
+    private EntryDto toDto(BookEntry entry, BookPracticeRecordRepository.EntryStat stat, String displayName) {
         long total = stat == null ? 0 : stat.getTotal();
         long correct = stat == null ? 0 : stat.getCorrect();
         Double accuracy = total == 0 ? null : Math.round(correct * 1000.0 / total) / 10.0;
@@ -455,7 +519,7 @@ public class BookService {
                 entry.getId(),
                 entry.getGrade(),
                 entry.getTerm(),
-                entry.getSubject(),
+                displayName,
                 entry.getErrorType(),
                 entry.getCreatedAt().toEpochMilli(),
                 TIME_FORMAT.format(entry.getCreatedAt()),
@@ -486,7 +550,30 @@ public class BookService {
     private List<EntryDto> toDtos(List<BookEntry> entries) {
         Map<String, BookPracticeRecordRepository.EntryStat> stats =
                 statMap(entries.stream().map(BookEntry::getId).toList());
-        return entries.stream().map(e -> toDto(e, stats.get(e.getId()))).toList();
+        Set<Long> subjectIds = new HashSet<>();
+        for (BookEntry e : entries) {
+            if (e.getSubjectId() != null) {
+                subjectIds.add(e.getSubjectId());
+            }
+        }
+        Map<Long, UserSubject> subjectMap = new HashMap<>();
+        for (UserSubject s : subjectRepository.findAllById(subjectIds)) {
+            subjectMap.put(s.getId(), s);
+        }
+        return entries.stream()
+                .map(e -> toDto(e, stats.get(e.getId()), v1SubjectName(e, subjectMap)))
+                .toList();
+    }
+
+    private UserSubject presetSubject(User user, String name) {
+        taxonomyService.initSubjectsWithRetry(user.getId());
+        for (TaxonomyService.Template template : TaxonomyService.PRESETS) {
+            if (template.name().equals(name)) {
+                return subjectRepository.findByUserIdAndSystemKey(user.getId(), template.systemKey())
+                        .orElse(null);
+            }
+        }
+        return null;
     }
 
     private static String blankToNull(String value) {

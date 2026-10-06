@@ -228,7 +228,8 @@ class AgentIntegrationTest extends AbstractIntegrationTest {
         }
         assertNotNull(analogy);
         String rendered = analogy.path("userPromptTemplate").asText()
-                .replace("{subject}", "数学").replace("{grade}", "7")
+                .replace("{subject}", "数学").replace("{topic}", "")
+                .replace("{grade}", "7")
                 .replace("{term}", "上学期").replace("{errorType}", "马虎").replace("{count}", "3");
         String source = analogy.path("systemPrompt").asText() + "\n" + rendered + "\n"
                 + analogy.path("model").asText() + "\n" + analogy.path("temperature").asDouble();

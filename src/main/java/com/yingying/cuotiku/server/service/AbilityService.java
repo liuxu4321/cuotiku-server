@@ -4,7 +4,11 @@ import com.yingying.cuotiku.server.dto.BookDto.AbilityDimensionDto;
 import com.yingying.cuotiku.server.dto.BookDto.AbilityModelDto;
 import com.yingying.cuotiku.server.dto.BookDto.AbilityResponseDto;
 import com.yingying.cuotiku.server.entity.BookEntry;
+import com.yingying.cuotiku.server.entity.User;
+import com.yingying.cuotiku.server.entity.UserSubject;
 import com.yingying.cuotiku.server.repository.BookEntryRepository;
+import com.yingying.cuotiku.server.repository.UserRepository;
+import com.yingying.cuotiku.server.repository.UserSubjectRepository;
 import com.yingying.cuotiku.server.web.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,9 +51,18 @@ public class AbilityService {
     private static final DimSpec DILIGENCE = new DimSpec("DILIGENCE", "练习勤奋度", null);
 
     private final BookEntryRepository repository;
+    private final UserSubjectRepository subjectRepository;
+    private final UserRepository userRepository;
+    private final TaxonomyService taxonomyService;
 
-    public AbilityService(BookEntryRepository repository) {
+    public AbilityService(BookEntryRepository repository,
+                          UserSubjectRepository subjectRepository,
+                          UserRepository userRepository,
+                          TaxonomyService taxonomyService) {
         this.repository = repository;
+        this.subjectRepository = subjectRepository;
+        this.userRepository = userRepository;
+        this.taxonomyService = taxonomyService;
     }
 
     public record Filters(Integer grade, Integer term, String subject, Instant start, Instant end) {}
@@ -78,6 +91,17 @@ public class AbilityService {
 
     @Transactional(readOnly = true)
     public AbilityResponseDto query(Long userId, Filters filters) {
+        if (filters.subject() == null) {
+            User owner = userRepository.findById(userId).orElseThrow();
+            if (taxonomyService.activated(owner)) {
+                List<Long> customIds = subjectRepository.findByUserIdAndSystemKeyIsNull(userId).stream()
+                        .map(UserSubject::getId).toList();
+                if (!customIds.isEmpty() && repository.countCustomInScope(userId, customIds,
+                        filters.grade(), filters.term(), filters.start(), filters.end()) > 0) {
+                    throw new ApiException(4026, TaxonomyService.STATS_MESSAGE);
+                }
+            }
+        }
         List<BookEntry> all = repository.findForAbility(userId, filters.grade(), filters.term(),
                 filters.subject(), filters.start(), filters.end());
         List<AbilityModelDto> subjects = new ArrayList<>();

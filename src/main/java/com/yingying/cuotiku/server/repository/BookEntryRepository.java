@@ -80,6 +80,21 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
     @Query("select count(e) from BookEntry e where e.userId = :userId and e.subjectId in :subjectIds")
     long countByUserIdAndSubjectIdIn(@Param("userId") Long userId, @Param("subjectIds") Collection<Long> subjectIds);
 
+    @Query("""
+            select count(e) from BookEntry e
+            where e.userId = :userId and e.subjectId in :subjectIds
+              and (:grade is null or e.grade = :grade)
+              and (:term is null or e.term = :term)
+              and (:start is null or e.createdAt >= :start)
+              and (:end is null or e.createdAt <= :end)
+            """)
+    long countCustomInScope(@Param("userId") Long userId,
+                            @Param("subjectIds") Collection<Long> subjectIds,
+                            @Param("grade") Integer grade,
+                            @Param("term") Integer term,
+                            @Param("start") Instant start,
+                            @Param("end") Instant end);
+
     @Query("select e.topicId, count(e) from BookEntry e where e.userId = :userId and e.topicId is not null group by e.topicId")
     List<Object[]> countGroupedByTopicId(@Param("userId") Long userId);
 

@@ -48,6 +48,11 @@ public class TaxonomyService {
         this.self = self;
     }
 
+    public static final String UPGRADE_MESSAGE =
+            "此账号已启用新版科目与主题，请升级至 1.5.0 或以上版本后继续此操作。";
+    public static final String STATS_MESSAGE =
+            "旧版客户端无法完整展示当前范围的能力统计，请升级至 1.5.0 或以上版本。";
+
     public boolean entryOpen() {
         return properties.taxonomy() == null || properties.taxonomy().v2Enabled();
     }
@@ -111,6 +116,15 @@ public class TaxonomyService {
         user.setTaxonomyV2ActivatedAt(Instant.now());
         userRepository.save(user);
         log.info("[分类] 账号激活 taxonomyV2 phone={} userId={}", user.getPhone(), user.getId());
+    }
+
+    public static String presetName(String systemKey) {
+        for (Template template : PRESETS) {
+            if (template.systemKey().equals(systemKey)) {
+                return template.name();
+            }
+        }
+        return null;
     }
 
     public boolean activated(User user) {

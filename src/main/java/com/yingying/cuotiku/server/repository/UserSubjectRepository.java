@@ -20,6 +20,9 @@ public interface UserSubjectRepository extends JpaRepository<UserSubject, Long> 
 
     long countByUserId(Long userId);
 
+
+    List<UserSubject> findByUserIdAndSystemKeyIsNull(Long userId);
+
     @Query("select coalesce(max(s.sortOrder), 0) from UserSubject s where s.userId = :userId")
     int maxSortOrder(@Param("userId") Long userId);
 }
