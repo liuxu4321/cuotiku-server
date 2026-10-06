@@ -129,7 +129,7 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.21.0 -t jefferliu/yycuotiku-server:latest .
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.21.1 -t jefferliu/yycuotiku-server:latest .
 docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```

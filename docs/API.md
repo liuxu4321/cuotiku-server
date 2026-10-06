@@ -1,6 +1,6 @@
 # 盈盈错题库后台 · 接口文档
 
-版本：v1.21.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.21.1 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本变更记录见文末第 8 节。
 
@@ -1253,6 +1253,11 @@ PUT /api/v2/preferences { defaultSubjectId|null, defaultTopicId|null }
 旧客户端（v1）兼容摘要（详见 CONTRACT §10）：未激活账号 v1 行为完全不变（add 双写 subjectId）；已激活账号 v1 add 阻断 426、v1 update 涉主题/自定义科目阻断 426、不含 subject 的 update 与预设间映射放行；v1 读六科返回模板规范名、自定义原样；v1 随机/能力范围含自定义题时 426。开关 `TAXONOMY_V2_ENABLED` 只控入口/新激活，回退不清激活、不回收已激活读写。
 
 ## 10. 版本更新记录
+
+### v1.21.1（2026-10-06，产品 1.5.0 服务端首发改版号）
+
+- 改版号说明：v2 分类体系首个对外发布版本定为 1.21.1；1.21.0 仅存在于开发线、未推送镜像。包含 1.21.0 全部内容 + DEF-150-03（`/api/v2/preferences` 补齐）。
+- 发布默认 `TAXONOMY_V2_ENABLED=false`（入口关闭、只读安全），按 CM-04 顺序后续开放。
 
 ### v1.21.0（2026-10-06，产品 1.5.0 服务端）
 
