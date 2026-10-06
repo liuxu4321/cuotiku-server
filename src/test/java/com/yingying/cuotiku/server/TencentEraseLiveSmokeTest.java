@@ -29,6 +29,8 @@ class TencentEraseLiveSmokeTest {
                 new AppProperties.Ai(new AppProperties.Ai.Tencent(
                         null, null, secretId, secretKey, 60)),
                 null,
+                null,
+                null,
                 null);
         TencentOcrClient client = new TencentOcrClient(properties, new ObjectMapper());
 
@@ -60,6 +62,8 @@ class TencentEraseLiveSmokeTest {
                 null, null, null,
                 new AppProperties.Ai(new AppProperties.Ai.Tencent(
                         null, null, secretId, secretKey, 90)),
+                null,
+                null,
                 null,
                 null);
         TencentOcrClient client = new TencentOcrClient(properties, new ObjectMapper());
@@ -95,6 +99,8 @@ class TencentEraseLiveSmokeTest {
                 null, null, null,
                 new AppProperties.Ai(new AppProperties.Ai.Tencent(
                         null, null, secretId, secretKey, 60)),
+                null,
+                null,
                 null,
                 null);
         TencentOcrClient client = new TencentOcrClient(properties, new ObjectMapper());

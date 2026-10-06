@@ -46,6 +46,9 @@ public class User {
     @Column(length = 64)
     private String refreshJti;
 
+    @Column(name = "taxonomy_v2_activated_at")
+    private Instant taxonomyV2ActivatedAt;
+
     @Column(length = 64)
     private String prevSessionJti;
 
@@ -104,6 +107,8 @@ public class User {
     public void setSessionJti(String sessionJti) { this.sessionJti = sessionJti; }
     public String getRefreshJti() { return refreshJti; }
     public void setRefreshJti(String refreshJti) { this.refreshJti = refreshJti; }
+    public Instant getTaxonomyV2ActivatedAt() { return taxonomyV2ActivatedAt; }
+    public void setTaxonomyV2ActivatedAt(Instant v) { this.taxonomyV2ActivatedAt = v; }
     public String getPrevSessionJti() { return prevSessionJti; }
     public void setPrevSessionJti(String v) { this.prevSessionJti = v; }
     public String getPrevRefreshJti() { return prevRefreshJti; }

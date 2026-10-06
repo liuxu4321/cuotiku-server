@@ -7,7 +7,8 @@ import java.time.Instant;
 @Table(name = "book_entry", indexes = {
         @Index(name = "idx_book_user_created", columnList = "userId,createdAt"),
         @Index(name = "idx_book_user_subject", columnList = "userId,subject"),
-        @Index(name = "idx_book_user_grade", columnList = "userId,grade")
+        @Index(name = "idx_book_user_grade", columnList = "userId,grade"),
+        @Index(name = "idx_book_user_subject_topic", columnList = "userId,subjectId,topicId")
 })
 public class BookEntry {
 
@@ -23,6 +24,12 @@ public class BookEntry {
 
     @Column
     private Integer term;
+
+    @Column(name = "subject_id")
+    private Long subjectId;
+
+    @Column(name = "topic_id")
+    private Long topicId;
 
     @Column(nullable = false, length = 16)
     private String subject;
@@ -68,6 +75,10 @@ public class BookEntry {
     public void setGrade(int grade) { this.grade = grade; }
     public Integer getTerm() { return term; }
     public void setTerm(Integer term) { this.term = term; }
+    public Long getSubjectId() { return subjectId; }
+    public void setSubjectId(Long subjectId) { this.subjectId = subjectId; }
+    public Long getTopicId() { return topicId; }
+    public void setTopicId(Long topicId) { this.topicId = topicId; }
     public String getSubject() { return subject; }
     public void setSubject(String subject) { this.subject = subject; }
     public String getErrorType() { return errorType; }

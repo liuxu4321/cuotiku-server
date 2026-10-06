@@ -3,7 +3,10 @@ package com.yingying.cuotiku.server.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app")
-public record AppProperties(Jwt jwt, Admin admin, Captcha captcha, Ai ai, Cos cos, Agent agent) {
+public record AppProperties(Jwt jwt, Admin admin, Captcha captcha, Ai ai, Cos cos, Agent agent,
+                            Taxonomy taxonomy, String serverVersion) {
+
+    public record Taxonomy(boolean v2Enabled, boolean backfillOnStartup) {}
 
     public record Agent(long dailyLimit) {
         public Agent {

@@ -21,6 +21,21 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
 
     long countByUserId(Long userId);
 
+    boolean existsBySubjectId(Long subjectId);
+
+    boolean existsByTopicId(Long topicId);
+
+    @Query("select distinct e.userId from BookEntry e where e.subjectId is null")
+    List<Long> findUserIdsWithUnmigratedEntries();
+
+    @Query("select distinct e.subject from BookEntry e where e.userId = :userId and e.subjectId is null")
+    List<String> findUnmigratedSubjectNames(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("update BookEntry e set e.subjectId = :subjectId where e.userId = :userId and e.subjectId is null and e.subject = :name")
+    int backfillSubjectId(@Param("userId") Long userId, @Param("name") String name,
+                          @Param("subjectId") Long subjectId);
+
     @Query("""
             select e from BookEntry e
             where e.userId = :userId

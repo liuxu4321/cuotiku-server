@@ -24,6 +24,10 @@ server:
   forward-headers-strategy: framework
 
 app:
+  server-version: "@project.version@"
+  taxonomy:
+    v2-enabled: ${TAXONOMY_V2_ENABLED:false}
+    backfill-on-startup: ${TAXONOMY_BACKFILL_ON_STARTUP:true}
   agent:
     daily-limit: ${AGENT_DAILY_LIMIT:20}
   captcha:
