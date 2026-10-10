@@ -12,4 +12,5 @@ public interface AiAgentResultRepository extends JpaRepository<AiAgentResult, Lo
     long deleteByAgentKeyAndSubjectKey(String agentKey, String subjectKey);
 
     long deleteByAgentKey(String agentKey);
+    java.util.List<AiAgentResult> findByUserIdAndStudentId(Long userId, String studentId);
 }

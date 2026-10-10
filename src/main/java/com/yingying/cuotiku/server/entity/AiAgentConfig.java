@@ -8,31 +8,31 @@ import java.time.Instant;
 public class AiAgentConfig {
 
     @Id
-    @Column(length = 32)
+    @Column(name = "agent_key", length = 32)
     private String agentKey;
 
-    @Column(nullable = false, length = 64)
+    @Column(name = "name", nullable = false, length = 64)
     private String name;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(name = "system_prompt", nullable = false, columnDefinition = "TEXT")
     private String systemPrompt;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(name = "user_prompt_template", nullable = false, columnDefinition = "TEXT")
     private String userPromptTemplate;
 
-    @Column(nullable = false, length = 64)
+    @Column(name = "model", nullable = false, length = 64)
     private String model;
 
-    @Column(nullable = false)
+    @Column(name = "temperature", nullable = false)
     private Double temperature = 0.7;
 
-    @Column(nullable = false)
+    @Column(name = "max_tokens", nullable = false)
     private Integer maxTokens = 4096;
 
-    @Column(nullable = false)
+    @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @PrePersist
@@ -58,4 +58,22 @@ public class AiAgentConfig {
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Target model extensions remain nullable for pre-student historical rows.
+    /** 模型供应商，保留当前 DashScope 实现 */
+    @Column(name = "provider", length = 32)
+    private String provider = "DASHSCOPE";
+
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
+
+    /** 配置修订号，用于追溯和缓存失效 */
+    @Column(name = "config_version")
+    private Integer configVersion = 1;
+
+    public Integer getConfigVersion() { return configVersion; }
+    public void setConfigVersion(Integer configVersion) { this.configVersion = configVersion; }
+
+
+
 }

@@ -129,7 +129,7 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.21.1 -t jefferliu/yycuotiku-server:latest .
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.22.0 -t jefferliu/yycuotiku-server:latest .
 docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```
@@ -153,3 +153,11 @@ sealos 容器平台部署要点：
 mvn test
 mvn package
 ```
+
+## 小程序服务端（1.22.0）
+
+详细契约见[MINIAPP-API.md](docs/MINIAPP-API.md)，分层、配置和验收见[SERVER-IMPLEMENTATION.md](docs/SERVER-IMPLEMENTATION.md)。新增路径使用`/api/mini/v1`与`/api/admin/mini/v1`。
+
+配置`WECHAT_MINIAPP_APP_ID`、`WECHAT_MINIAPP_SECRET`启用微信身份交换；`MINIAPP_WORKER_ENABLED`默认true，`MINIAPP_POLL_DELAY_MS`默认1000。腾讯云OCR／COS、DashScope继续使用现有配置。未配置云凭据时不能完成真实识别；本地存储和声明式PDF可独立运行。生产需持久MySQL和对象存储，客户端先读取capabilities。
+
+本次没有执行生产升级、镜像推送或部署。

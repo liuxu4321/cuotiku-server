@@ -70,6 +70,12 @@ public class LocalBookStorage implements BookStorage {
     }
 
     @Override
+    public void deleteStrict(String key) {
+        try { Files.deleteIfExists(resolve(key)); }
+        catch (IOException e) { throw new ApiException(500, "本地文件删除失败"); }
+    }
+
+    @Override
     public String describe() {
         return "local:" + root;
     }

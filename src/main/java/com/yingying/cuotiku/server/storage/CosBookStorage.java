@@ -36,7 +36,10 @@ public class CosBookStorage implements BookStorage {
     }
 
     @Override
-    public void put(String key, byte[] content) {
+    public void put(String key, byte[] content) { put(key, content, "application/zip"); }
+
+    @Override
+    public void put(String key, byte[] content, String mimeType) {
         if (log.isDebugEnabled()) {
             log.debug("[COS] 上传 key={} bytes={}", key, content.length);
         }
@@ -44,7 +47,7 @@ public class CosBookStorage implements BookStorage {
         try {
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(content.length);
-            metadata.setContentType("application/zip");
+            metadata.setContentType(mimeType);
             client.putObject(bucket, key, new ByteArrayInputStream(content), metadata);
             if (log.isDebugEnabled()) {
                 log.debug("[COS] 上传完成 key={} 耗时={}ms", key, System.currentTimeMillis() - startMillis);
@@ -53,6 +56,32 @@ public class CosBookStorage implements BookStorage {
             log.error("COS 上传失败 key={}", key, e);
             throw new ApiException(502, "错题图片上传对象存储失败，请稍后重试");
         }
+    }
+
+    @Override
+    public long size(String key) {
+        try { return client.getObjectMetadata(bucket, key).getContentLength(); }
+        catch (CosClientException e) { throw new ApiException(502, "无法读取对象存储元数据"); }
+    }
+
+    @Override
+    public String signedUrl(String key, String method, String mimeType, java.time.Instant expiresAt) {
+        return signedUrl(key, method, mimeType, expiresAt, "inline");
+    }
+
+    @Override
+    public String signedUrl(String key, String method, String mimeType, java.time.Instant expiresAt, String disposition) {
+        com.qcloud.cos.model.GeneratePresignedUrlRequest request =
+                new com.qcloud.cos.model.GeneratePresignedUrlRequest(bucket, key,
+                        com.qcloud.cos.http.HttpMethodName.valueOf(method));
+        request.setExpiration(java.util.Date.from(expiresAt));
+        if ("PUT".equals(method)) request.setContentType(mimeType);
+        else {
+            com.qcloud.cos.model.ResponseHeaderOverrides headers = new com.qcloud.cos.model.ResponseHeaderOverrides();
+            headers.setContentDisposition(disposition);
+            request.setResponseHeaders(headers);
+        }
+        return client.generatePresignedUrl(request).toExternalForm();
     }
 
     @Override
@@ -89,6 +118,12 @@ public class CosBookStorage implements BookStorage {
         } catch (CosClientException e) {
             log.warn("COS 删除失败 key={}: {}", key, e.getMessage());
         }
+    }
+
+    @Override
+    public void deleteStrict(String key) {
+        try { client.deleteObject(bucket, key); }
+        catch (CosClientException e) { throw new ApiException(502, "对象存储删除失败"); }
     }
 
     @Override

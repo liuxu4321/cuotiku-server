@@ -44,6 +44,15 @@ public class JwtService {
         return issue(phone, TYPE_ACCESS, ttlSeconds, builder -> builder.claim("role", role));
     }
 
+    /** 身份令牌与账号访问令牌使用不同typ，不能访问业务接口。 */
+    public IssuedToken issueMiniResource(String id, String purpose) {
+        return issue(id, purpose, 300, builder -> builder);
+    }
+
+    public IssuedToken issueMiniIdentity(String identityId) {
+        return issue(identityId, "mini_identity", 300, builder -> builder);
+    }
+
     public IssuedToken issueRefresh(String phone) {
         return issue(phone, TYPE_REFRESH, refreshTtlSeconds, builder -> builder);
     }

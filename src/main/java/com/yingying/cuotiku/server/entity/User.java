@@ -7,68 +7,67 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "sys_user", indexes = {
         @Index(name = "idx_user_phone", columnList = "phone", unique = true),
-        @Index(name = "idx_user_member_no", columnList = "memberNo")
+        @Index(name = "idx_user_member_no", columnList = "member_no")
 })
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(name = "phone", nullable = false, unique = true, length = 20)
     private String phone;
 
-    @Column(length = 64)
+    @Column(name = "member_no", length = 64)
     private String memberNo;
 
-    @Column(length = 10)
+    @Column(name = "member_expire_at", length = 10)
     private LocalDate memberExpireAt;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
+    @Column(name = "role", nullable = false, length = 16)
     private Role role = Role.USER;
 
-    @Column(nullable = false)
+    @Column(name = "ai_enabled", nullable = false)
     private boolean aiEnabled = false;
 
-    @Column(nullable = false)
+    @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
-    @Column(nullable = false)
+    @Column(name = "cancelled", nullable = false)
     private boolean cancelled = false;
 
-    @Column(length = 64)
+    @Column(name = "session_jti", length = 64)
     private String sessionJti;
 
-    @Column(length = 64)
+    @Column(name = "refresh_jti", length = 64)
     private String refreshJti;
 
     @Column(name = "taxonomy_v2_activated_at")
     private Instant taxonomyV2ActivatedAt;
 
-    @Column(length = 64)
+    @Column(name = "prev_session_jti", length = 64)
     private String prevSessionJti;
 
-    @Column(length = 64)
+    @Column(name = "prev_refresh_jti", length = 64)
     private String prevRefreshJti;
 
-    @Column(length = 8)
-    private String rotateReason;
-
+    @Column(name = "rotate_reason", length = 8)
+    private String rotateReason;    @Column(name = "rotated_at")
     private Instant rotatedAt;
 
-    @Column(length = 64)
-    private String clientLabel;
-
+    @Column(name = "client_label", length = 64)
+    private String clientLabel;    @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @PrePersist
@@ -123,4 +122,15 @@ public class User {
     public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Target model extensions remain nullable for pre-student historical rows.
+    /** 会员显示名，现有 User 没有该字段，需要补充；不能从学生昵称推断 */
+    @Column(name = "member_name", length = 64)
+    private String memberName;
+
+    public String getMemberName() { return memberName; }
+    public void setMemberName(String memberName) { this.memberName = memberName; }
+
+
+
 }

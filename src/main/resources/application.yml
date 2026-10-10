@@ -25,6 +25,11 @@ server:
 
 app:
   server-version: "@project.version@"
+  mini:
+    wechat-app-id: ${WECHAT_MINIAPP_APP_ID:}
+    wechat-secret: ${WECHAT_MINIAPP_SECRET:}
+    worker-enabled: ${MINIAPP_WORKER_ENABLED:true}
+    poll-delay-ms: ${MINIAPP_POLL_DELAY_MS:1000}
   taxonomy:
     v2-enabled: ${TAXONOMY_V2_ENABLED:false}
     backfill-on-startup: ${TAXONOMY_BACKFILL_ON_STARTUP:true}

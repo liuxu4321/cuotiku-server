@@ -13,7 +13,7 @@
 
   <groupId>com.yingying.cuotiku</groupId>
   <artifactId>yycuotiku-server</artifactId>
-  <version>1.21.1</version>
+  <version>1.22.0</version>
   <name>yycuotiku-server</name>
   <description>盈盈错题库后台服务：登录/授权/AI去手写/用户管理</description>
 
@@ -25,6 +25,11 @@
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>org.apache.pdfbox</groupId>
+      <artifactId>pdfbox</artifactId>
+      <version>3.0.8</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>

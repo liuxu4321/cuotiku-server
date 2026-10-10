@@ -15,6 +15,7 @@ public interface SubjectTopicRepository extends JpaRepository<SubjectTopic, Long
 
     List<SubjectTopic> findByUserIdAndSubjectIdInOrderBySortOrderAscIdAsc(Long userId, Collection<Long> subjectIds);
 
+    @Query("select t from SubjectTopic t where t.userId=:userId and t.id=:id and t.studentId is null")
     Optional<SubjectTopic> findByUserIdAndId(Long userId, Long id);
 
     Optional<SubjectTopic> findBySubjectIdAndNormalizedName(Long subjectId, String normalizedName);
@@ -26,6 +27,7 @@ public interface SubjectTopicRepository extends JpaRepository<SubjectTopic, Long
     @Query("select coalesce(max(t.sortOrder), 0) from SubjectTopic t where t.subjectId = :subjectId")
     int maxSortOrder(@Param("subjectId") Long subjectId);
 
-    @Query("select t.subjectId, count(t) from SubjectTopic t where t.userId = :userId group by t.subjectId")
+    @Query("select t.subjectId, count(t) from SubjectTopic t where t.userId = :userId and t.studentId is null group by t.subjectId")
     List<Object[]> countGroupedBySubject(@Param("userId") Long userId);
+    java.util.List<SubjectTopic> findByUserIdAndStudentId(Long userId, String studentId);
 }

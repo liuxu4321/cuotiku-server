@@ -35,7 +35,7 @@ public interface BookPracticeRecordRepository extends JpaRepository<BookPractice
 
     @Query("""
             select p from BookPracticeRecord p
-            where p.userId = :userId
+            where p.userId = :userId and p.studentId is null
               and (:correct is null or p.correct = :correct)
               and (:start is null or p.practicedAt >= :start)
               and (:end is null or p.practicedAt <= :end)
@@ -50,10 +50,13 @@ public interface BookPracticeRecordRepository extends JpaRepository<BookPractice
     @Query("delete from BookPracticeRecord p where p.entryId = :entryId")
     int deleteByEntryId(@Param("entryId") String entryId);
 
+    @Query("select count(p) from BookPracticeRecord p where p.userId=:userId and p.studentId is null")
     long countByUserId(Long userId);
 
+    @Query("select count(p) from BookPracticeRecord p where p.userId=:userId and p.correct=true and p.studentId is null")
     long countByUserIdAndCorrectTrue(Long userId);
 
-    @Query("select max(p.practicedAt) from BookPracticeRecord p where p.userId = :userId")
+    @Query("select max(p.practicedAt) from BookPracticeRecord p where p.userId = :userId and p.studentId is null")
     Instant lastPracticedAt(@Param("userId") Long userId);
+    java.util.List<BookPracticeRecord> findByUserIdAndStudentId(Long userId, String studentId);
 }

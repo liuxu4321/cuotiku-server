@@ -17,7 +17,7 @@ public class UserTaxonomyPref {
     @Column(name = "default_topic_id")
     private Long defaultTopicId;
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @PrePersist
@@ -33,4 +33,25 @@ public class UserTaxonomyPref {
     public Long getDefaultTopicId() { return defaultTopicId; }
     public void setDefaultTopicId(Long v) { this.defaultTopicId = v; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Target model extensions remain nullable for pre-student historical rows.
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_subject_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private UserSubject defaultSubjectRef;
+
+    public UserSubject getDefaultSubjectRef() { return defaultSubjectRef; }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_topic_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private SubjectTopic defaultTopicRef;
+
+    public SubjectTopic getDefaultTopicRef() { return defaultTopicRef; }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private StudentProfile studentRef;
+
+    public StudentProfile getStudentRef() { return studentRef; }
+
 }

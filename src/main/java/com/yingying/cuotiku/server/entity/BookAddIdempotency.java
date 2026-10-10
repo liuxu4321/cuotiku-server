@@ -11,6 +11,7 @@ public class BookAddIdempotency {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
     @Column(name = "user_id", nullable = false)
@@ -25,7 +26,7 @@ public class BookAddIdempotency {
     @Column(name = "entry_id", nullable = false, length = 36)
     private String entryId;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     @PrePersist
@@ -43,4 +44,39 @@ public class BookAddIdempotency {
     public String getEntryId() { return entryId; }
     public void setEntryId(String entryId) { this.entryId = entryId; }
     public Instant getCreatedAt() { return createdAt; }
+
+    // Target model extensions remain nullable for pre-student historical rows.
+    /** 本次保存所属学生 */
+    @Column(name = "student_id", length = 36)
+    private String studentId;
+
+    public String getStudentId() { return studentId; }
+    public void setStudentId(String studentId) { this.studentId = studentId; }
+
+    /** 分类、来源和输入内容摘要 */
+    @Column(name = "request_hash", length = 64)
+    private String requestHash;
+
+    public String getRequestHash() { return requestHash; }
+    public void setRequestHash(String requestHash) { this.requestHash = requestHash; }
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private User userRef;
+
+    public User getUserRef() { return userRef; }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entry_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private BookEntry entryRef;
+
+    public BookEntry getEntryRef() { return entryRef; }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private StudentProfile studentRef;
+
+    public StudentProfile getStudentRef() { return studentRef; }
+
 }

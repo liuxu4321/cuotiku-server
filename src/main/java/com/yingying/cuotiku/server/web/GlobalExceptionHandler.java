@@ -25,6 +25,7 @@ public class GlobalExceptionHandler {
             case 401, 4011 -> HttpStatus.UNAUTHORIZED;
             case 403 -> HttpStatus.FORBIDDEN;
             case 404 -> HttpStatus.NOT_FOUND;
+            case 410 -> HttpStatus.GONE;
             case 409, 4091, 4092, 4093 -> HttpStatus.CONFLICT;
             case 4026 -> HttpStatus.UPGRADE_REQUIRED;
             case 429 -> HttpStatus.TOO_MANY_REQUESTS;
@@ -63,6 +64,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(404, "资源不存在"));
+    }
+
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiResponse<Void>> handleMalformed(Exception e) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(400, "请求格式或参数类型不正确"));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIntegrity(Exception e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(409, "数据存在重复或引用冲突"));
+    }
+
+    @ExceptionHandler({org.springframework.orm.ObjectOptimisticLockingFailureException.class})
+    public ResponseEntity<ApiResponse<Void>> handleVersion(Exception e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(4091, "数据已更新，请刷新后重试"));
     }
 
     @ExceptionHandler(Exception.class)

@@ -15,10 +15,13 @@ import java.util.Optional;
 
 public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
 
+    @Query("select e from BookEntry e where e.id=:id and e.userId=:userId and e.studentId is null")
     Optional<BookEntry> findByIdAndUserId(String id, Long userId);
 
+    @Query("select e from BookEntry e where e.id in :ids and e.userId=:userId and e.studentId is null")
     List<BookEntry> findByIdInAndUserId(Collection<String> ids, Long userId);
 
+    @Query("select count(e) from BookEntry e where e.userId=:userId and e.studentId is null")
     long countByUserId(Long userId);
 
     boolean existsBySubjectId(Long subjectId);
@@ -32,19 +35,19 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
     @Query("select distinct e.userId from BookEntry e where e.subjectId is null")
     List<Long> findUserIdsWithUnmigratedEntries();
 
-    @Query("select distinct e.subject from BookEntry e where e.userId = :userId and e.subjectId is null")
+    @Query("select distinct e.subject from BookEntry e where e.userId = :userId and e.studentId is null and e.subjectId is null")
     List<String> findUnmigratedSubjectNames(@Param("userId") Long userId);
 
     @Modifying
-    @Query("update BookEntry e set e.subjectId = :subjectId where e.userId = :userId and e.subjectId is null and e.subject = :name")
+    @Query("update BookEntry e set e.subjectId = :subjectId where e.userId = :userId and e.studentId is null and e.subjectId is null and e.subject = :name")
     int backfillSubjectId(@Param("userId") Long userId, @Param("name") String name,
                           @Param("subjectId") Long subjectId);
 
-    @Query("select e.subjectId, count(e) from BookEntry e where e.userId = :userId and e.subjectId is not null group by e.subjectId")
+    @Query("select e.subjectId, count(e) from BookEntry e where e.userId = :userId and e.studentId is null and e.subjectId is not null group by e.subjectId")
     List<Object[]> countGroupedBySubjectId(@Param("userId") Long userId);
 
     String V2_FILTER = """
-            where e.userId = :userId
+            where e.userId = :userId and e.studentId is null
               and (:grade is null or e.grade = :grade)
               and (:term is null or e.term = :term)
               and (:subjectId is null or e.subjectId = :subjectId)
@@ -77,12 +80,12 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
                            @Param("start") Instant start,
                            @Param("end") Instant end);
 
-    @Query("select count(e) from BookEntry e where e.userId = :userId and e.subjectId in :subjectIds")
+    @Query("select count(e) from BookEntry e where e.userId = :userId and e.studentId is null and e.subjectId in :subjectIds")
     long countByUserIdAndSubjectIdIn(@Param("userId") Long userId, @Param("subjectIds") Collection<Long> subjectIds);
 
     @Query("""
             select count(e) from BookEntry e
-            where e.userId = :userId and e.subjectId in :subjectIds
+            where e.userId = :userId and e.studentId is null and e.subjectId in :subjectIds
               and (:grade is null or e.grade = :grade)
               and (:term is null or e.term = :term)
               and (:start is null or e.createdAt >= :start)
@@ -95,12 +98,12 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
                             @Param("start") Instant start,
                             @Param("end") Instant end);
 
-    @Query("select e.topicId, count(e) from BookEntry e where e.userId = :userId and e.topicId is not null group by e.topicId")
+    @Query("select e.topicId, count(e) from BookEntry e where e.userId = :userId and e.studentId is null and e.topicId is not null group by e.topicId")
     List<Object[]> countGroupedByTopicId(@Param("userId") Long userId);
 
     @Query("""
             select e from BookEntry e
-            where e.userId = :userId
+            where e.userId = :userId and e.studentId is null
               and (:grade is null or e.grade = :grade)
               and (:term is null or e.term = :term)
               and (:subject is null or e.subject = :subject)
@@ -115,7 +118,7 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
 
     @Query("""
             select e from BookEntry e
-            where e.userId = :userId
+            where e.userId = :userId and e.studentId is null
               and (:grade is null or e.grade = :grade)
               and (:term is null or e.term = :term)
               and (:subject is null or e.subject = :subject)
@@ -131,7 +134,7 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
 
     @Query("""
             select e from BookEntry e
-            where e.userId = :userId
+            where e.userId = :userId and e.studentId is null
               and e.errorType = :errorType
               and (:grade is null or e.grade = :grade)
               and (:term is null or e.term = :term)
@@ -144,6 +147,7 @@ public interface BookEntryRepository extends JpaRepository<BookEntry, String> {
                                   @Param("subject") String subject);
 
     @Modifying
-    @Query("update BookEntry e set e.practiceCount = e.practiceCount + 1 where e.id in :ids and e.userId = :userId")
+    @Query("update BookEntry e set e.practiceCount = e.practiceCount + 1 where e.id in :ids and e.userId = :userId and e.studentId is null")
     int bumpPracticeCount(@Param("ids") Collection<String> ids, @Param("userId") Long userId);
+    java.util.List<BookEntry> findByUserIdAndStudentId(Long userId, String studentId);
 }

@@ -19,6 +19,8 @@ public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
     static void datasourceProps(DynamicPropertyRegistry registry) {
+        // 异步Worker由专门测试显式驱动，避免共享MySQL上的多个测试上下文抢任务。
+        registry.add("app.mini.worker-enabled", () -> false);
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);

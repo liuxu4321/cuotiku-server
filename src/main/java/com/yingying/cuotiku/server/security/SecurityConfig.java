@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/captcha", "/api/auth/login", "/api/auth/refresh").permitAll()
+                        .requestMatchers("/api/mini/v1/capabilities", "/api/mini/v1/content/**", "/api/mini/v1/auth/**", "/api/mini/v1/files/**").permitAll()
                         .requestMatchers("/api/client/keepalive").permitAll()
                         .requestMatchers("/admin/**", "/admin.html", "/favicon.ico", "/error").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

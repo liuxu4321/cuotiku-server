@@ -11,4 +11,5 @@ public interface BookAddIdempotencyRepository extends JpaRepository<BookAddIdemp
     Optional<BookAddIdempotency> findByUserIdAndRequestIdAndClientId(Long userId, String requestId, String clientId);
 
     long deleteByCreatedAtBefore(Instant cutoff);
+    java.util.List<BookAddIdempotency> findByUserIdAndStudentId(Long userId, String studentId);
 }

@@ -38,4 +38,5 @@ public interface AiCallLogRepository extends JpaRepository<AiCallLog, Long> {
                      @Param("aiType") String aiType,
                      @Param("start") Instant start,
                      @Param("end") Instant end);
+    java.util.List<AiCallLog> findByUserIdAndStudentId(Long userId, String studentId);
 }

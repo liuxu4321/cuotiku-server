@@ -1,8 +1,252 @@
 # 盈盈错题库后台 · 接口文档
 
-版本：v1.21.1 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+## 版本更新记录
 
-> 版本变更记录见文末第 8 节。
+### 小程序认证对接补充（2026-10-10）
+
+微信身份交换适配官方text/plain JSON响应，避免合法code被错误报为502。新增适配器测试验证成功、无效code及异常响应。
+
+AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`lastStudentId`，修正先前实现直接返回账号对象的不一致。小程序接入能力协商、微信登录、图形验证码、会员绑定及会话恢复，客户端说明见相邻shixing-miniapp/docs/CLIENT-AUTH-INTEGRATION.md。
+
+### v1.22.0（2026-10-10，源码实现，未部署）
+
+完成小程序118个新增接口、Controller／Service分层、学生隔离、微信绑定、资产、处理任务、错题与组卷、模板版本、PDF打印及管理审计。契约见 [MINIAPP-API.md](MINIAPP-API.md)，实现与验收见 [SERVER-IMPLEMENTATION.md](SERVER-IMPLEMENTATION.md)。旧接口保持兼容，旧数据查询限定未归属学生的历史记录。
+
+### 小程序业务契约 1.0.0（2026-10-10，规划文档）
+
+新增完整小程序业务子契约 [MINIAPP-API.md](MINIAPP-API.md)：接口清单、入出参和样例、业务编排、状态与兼容规则。除明确“已有”项外尚无Controller实现，不改变服务端包版本和现有桌面接口。业务需求见 [USER-STORIES.md](USER-STORIES.md)。
+
+### v1.21.1（2026-10-06，产品 1.5.0 服务端首发改版号）
+
+- 改版号说明：v2 分类体系首个对外发布版本定为 1.21.1；1.21.0 仅存在于开发线、未推送镜像。包含 1.21.0 全部内容 + DEF-150-03（`/api/v2/preferences` 补齐）。
+- 发布默认 `TAXONOMY_V2_ENABLED=false`（入口关闭、只读安全），按 CM-04 顺序后续开放。
+
+### v1.21.0（2026-10-06，产品 1.5.0 服务端）
+
+- **v2 分类体系上线**（CONTRACT rev 2 实施）：user_subject/subject_topic/user_taxonomy_pref/book_add_idempotency 新表，book_entry +subject_id/topic_id，sys_user +taxonomy_v2_activated_at；六科惰性幂等初始化；历史数据按「用户+原名称」幂等回填（未知旧值建自定义科目保留，不激活）。
+- 科目/主题管理、批量加入（逐项幂等+部分失败）、三态编辑、批量重新归类、v2 查询/抽题/能力、偏好、capabilities 全量接口（第 9 节）。
+- AI Agent 提示词新增 `{topic}` 变量；entryId 路径服务端解析当前分类名称；缓存哈希含渲染提示词，改名/重新归类自动失效。
+- 旧客户端兼容矩阵与 426 冻结文案落地；`TAXONOMY_V2_ENABLED` 入口开关（默认 false）。
+- 性能实测（PERFORMANCE P1–P6/P9）全部低于预算，见 records/V150-BE-04-EVIDENCE.md。
+- **补遗（前端复核 GAP-150-FE-P1 关闭）**：`GET/PUT /api/v2/preferences` 账号默认选择接口实现补齐（9.5 节）：写入校验归属+ACTIVE（含父科目）、读写不触发激活、开关关闭且未激活时 PUT 403；客户端既有优雅降级无需改动。
+
+### v1.20.0（2026-10-03）
+
+- **新增刷题记录附表** `book_practice_record`：记录每次刷题的时间（`practicedAt`，支持补录）、答案内容（`answerContent`）、正确与否（`correct`）；插入记录同事务 `practiceCount+1`，公平组卷自动纳入答题练习。
+- 新接口：`POST /api/book/entries/{id}/practices`（提交）、`GET /api/book/entries/{id}/practices`（单题明细+汇总）、`GET /api/book/practices/history`（跨题历史，按对错/日期筛选，附用户全量正确率）。
+- EntryDto 新增聚合字段 `recordCount/correctCount/accuracy/lastPracticedAt`（列表/单条/组卷一次 group-by 查询，无 N+1）；删除错题级联删除其刷题记录。
+
+### v1.19.0（2026-10-03）
+
+- **错题数据结构新增字段**：`remark`（用户备注）与 `answer`（答案信息），默认空（null），最长 1000 字。
+- 添加错题（5.1）可携带备注/答案；**修改错题接口**（`PUT /api/book/entries/{id}`，5.6）支持更新与清空（空字符串清除为 null，不传不修改）；列表/单条/组卷/批量取图等所有 EntryDto 均返回两字段。**删除错题接口**已存在（`DELETE /api/book/entries/{id}`，5.9），无需变更。
+- 数据库 `book_entry` 表自动加列，历史数据两字段为 null，客户端无需迁移。
+
+### v1.18.2（2026-10-03）
+
+- **修复成品图旋转 90° 问题**：手机照片显示方向记录在 EXIF Orientation 中，而 ImageIO 解码、服务端重编码与腾讯云引擎输出均不保留 EXIF，导致处理结果回到传感器存储方向（表现为逆时针旋转 90°）。现服务端在去手写/切边增强/切题/试卷处理/错题入库全链路调用前按 EXIF 自动旋转像素（8 种方向全支持），成品图方向与原图显示一致。
+- 新增 `ImageUtil` 与单元测试（orientation=6 旋转、180° 保持尺寸、无 EXIF 原样透传）。
+
+### v1.18.1（2026-10-03）
+
+- **去手写 InternalError 加固**：调用擦除引擎前自动归一化图片（RGB 化、去 alpha、超 4096 边/1200 万像素等比缩、重编码标准 JPEG），规避超大分辨率/非常规格式触发的上游 `InternalError`；`InternalError` 自动重试一次；所有腾讯云上游错误 message 附带 `RequestId` 便于提工单排查。
+
+### v1.18.0（2026-10-03）
+
+- **修复踢出误报**：静默刷新轮换令牌后，客户端并发在途的旧令牌此前会命中"jti 不匹配"被误报 `4011 账号已在其他设备登录`。现记录轮换原因（LOGIN/REFRESH）与旧 jti：REFRESH 轮换后 **120 秒宽限期**内旧访问令牌仍有效、旧刷新令牌重发当前会话令牌（不旋转），仅新登录替换会话才返回 4011。
+- **4011 文案优化**：改为「该账号已在其他设备登录，当前设备已退出。如非本人操作，请立即修改密码」，降低用户"被盗号"恐慌并给出可操作引导；刷新接口失败文案同步区分踢出与其他失效原因。
+- 用户表新增 `prev_session_jti`/`prev_refresh_jti`/`rotate_reason`/`rotated_at` 字段（JPA 自动加列）。
+
+### v1.17.0（2026-10-03）
+
+- **新增用户自助修改密码接口** `POST /api/auth/password`（2.5 节）：校验原密码、新密码 6-64 位且不得与原密码相同；成功后当前双令牌立即失效，客户端重新登录。
+
+### v1.16.0（2026-10-02）
+
+- **Agent 结果缓存（成本控制）**：新表 `ai_agent_result`，每道错题每个 Agent 仅调用一次大模型；命中缓存直接返回（`cached=true`、返回首次 traceId、不耗配额、零 token 成本）。缓存键含提示词指纹，后台改提示词/模型/温度后自动失效重算；直传图片按 SHA-256 去重。
+- **管理端清缓存**：`DELETE /api/admin/agents/results`（按 Agent/题目/全部），后台「Agent管理」每行新增「清空缓存」按钮。
+- 客户端可据 `cached` 字段区分"新分析/历史结果"展示。
+
+### v1.15.2（2026-10-02）
+
+- **修复 Agent 多模态端点选择**：带图调用必须使用 DashScope 多模态端点（spring-ai-alibaba 的 `withMultiModel(true)`），此前走纯文本端点导致 `HTTP 400 InvalidParameter: url error, please check url`。现按请求是否带图自动切换端点；同时改用 `DashScopeChatOptions`（model/temperature/maxToken/multiModel）替代通用 ChatOptions。
+
+### v1.15.1（2026-10-02）
+
+- **修复 Agent 图片传入方式**：spring-ai-alibaba 1.1.2.x 的媒体转换仅支持 `byte[]`（转 data URI）与 `String`（URL），原实现传 `ByteArrayResource` 被序列化为非法 url，导致 DashScope 返回 `HTTP 400 InvalidParameter: url error, please check url`。改为 `Media.builder().data(byte[])` 官方支持方式，多模态读图恢复正常。
+
+### v1.15.0（2026-10-02）
+
+- **新增 Agent 模块**：引入 Spring AI Alibaba（DashScope）最新稳定版，Spring Boot 升级至 3.5.x；上线两个多模态 Agent——**举一反三**（`POST /api/agent/analogy`）与**做题精讲**（`POST /api/agent/explain`），默认模型 `qwen-vl-max`，可直接读错题图。
+- **提示词后台可配**：新表 `ai_agent_config` 种子内置默认系统/用户提示词模板；管理接口 `GET/PUT /api/admin/agents`、`POST /api/admin/agents/{key}/reset`；后台新增「Agent管理」菜单（提示词、模型、温度、maxTokens、启停，保存即时生效）。
+- **权限与配额**：Agent 需登录 + `aiEnabled`；每用户每 Agent 每日配额默认 20 次（`AGENT_DAILY_LIMIT`），超限 429；密钥经 `DASHSCOPE_API_KEY` 注入，未配置返回 503 且不影响服务启动。
+- **成本可视**：`ai_call_log` 新增 `input_tokens`/`output_tokens` 列与 `ANALOGY`/`EXPLAIN` 类型，统计接口与后台页面同步展示 Tokens。
+- 输出契约：模型被约束仅输出 JSON，服务端容错解析（去代码围栏），解析失败自动追加约束重试一次。
+
+### v1.14.0（2026-10-02）
+
+- **后台「客户端心跳」菜单升级为「客户端管理」**：当前实现客户端状态查询——新增关键字查询（手机号/客户端ID 模糊匹配，`GET /api/admin/keepalives` 增加 `keyword` 参数），保留仅在线过滤与 30 秒自动刷新；后续客户端管理操作（如禁用、备注）将在此菜单下扩展。
+- 认证过滤器重构：心跳路径令牌校验失败降级为匿名继续处理，其余路径行为不变。
+
+### v1.13.0（2026-10-02）
+
+- **新增客户端心跳（keepalive）接口** `POST /api/client/keepalive`（第 6 节）：免登录上报，每分钟一条；携带有效令牌记录登录账号，否则记临时用户；令牌无效/过期/被踢时自动降级匿名、不中断上报。每客户端单行 upsert（累计 reportCount、首/最近上报时间）。
+- **管理端**：`GET /api/admin/keepalives`（4.9 节，支持仅在线过滤）；后台管理页面新增「客户端心跳」菜单（在线/离线标签、临时用户标识、30 秒自动刷新）。
+
+### v1.12.0（2026-10-02）
+
+- **新增试卷处理三合一接口** `POST /api/ai/paper-process`（3.4 节）：一次调用串联切边增强→切题检测→整页去手写，返回成品整页图（`imageKind` 标明处理级别）、归一化题框与三步骤状态（含各自腾讯云 RequestId）。
+- 容错策略：切边增强失败回退原图不中断；切题/去手写上游失败整体失败。整页一次擦除使去手写调用次数与题数无关，替代客户端"裁剪→合成→擦除→拆回"旧链路。
+- 三个上游调用分别记入 `ai_call_log`（CROP_ENHANCE/SPLIT_QUESTIONS/ERASE），共享 traceId，统计口径不变。
+
+### v1.11.0（2026-10-02）
+
+- **新增自动切题检测接口** `POST /api/ai/split-questions`（3.3 节）：对接腾讯云「试卷切题（仅检测）」`QuestionSplitLayoutOCR`，返回整页试卷的题目边框（像素 + 归一化 0-1 双坐标、阅读序编号），支撑客户端"拍照→自动框题→点选确认→切题"交互；归一化坐标与客户端选框模型同构，可直接注入。
+- 服务端完成外接矩形化、碎框过滤、重叠/包含去重、阅读序排序；固定关闭腾讯侧切边保证坐标与传入图对齐；检测为空返回空数组供客户端回退手动框选。
+- 调用计入 AI 权限与调用流水：`ai_call_log` 新增类型 `SPLIT_QUESTIONS`，管理页统计与 `ai-stats` 的 aiType 筛选同步支持「自动切题」。
+
+### v1.10.0（2026-09-30）
+
+- **新增用户能力模型接口** `GET /api/user/ability`（5.11 节）：客户端按登录态查询自己的能力五边形数据，默认同时返回三科 + 综合共 4 个模型；五维 = 细心度/理解力/概念清晰/规范度（四类错题反向）+ 练习勤奋度（刷题正向）。
+- 评分含时间衰减（半衰期 60 天）与刷题缓解（刷题实时抬升对应维度，上限 60%），模型实时计算、随刷题/加题动态变化；无数据时 `score=null` 供客户端渲染空态。
+- 数据严格按用户隔离，仅能查询本人；该能力面向客户端展示，不提供管理端入口。
+
+### v1.9.0（2026-09-30）
+
+- **后台管理更名为「拾星错题本后台管理」**，页面改为多菜单布局（侧边栏：用户管理 / AI调用统计）。
+- **新增 AI 调用统计**：服务端自动记录每次 AI 调用流水（`ai_call_log` 表：用户、AI类型、成败、错误码、耗时、输入/输出大小、traceId、腾讯云 RequestId）；管理接口 `GET /api/admin/ai-stats`（4.8 节）支持按手机号、AI 类型（ERASE/CROP_ENHANCE）、时间范围（yyyy-MM-dd）组合查询，返回分页流水与成功/失败汇总；统计页含汇总卡片与流水表格。
+- 权限拒绝（403 未开通AI）不记入流水；流水写入失败不影响 AI 调用主流程。
+
+### v1.8.0（2026-09-30）
+
+- **注销会员语义强化**：`DELETE /api/admin/users/{id}/membership` 现在会标记账号 `cancelled=true`、立即踢下线并禁止登录；登录失败响应与密码错误完全一致（`401 手机号或密码错误`），客户端无需改动即表现为"账号或密码错误"。管理员编辑用户重新填写会员号/有效期即自动恢复。不能注销自己的账号。
+- UserDto 新增 `cancelled` 字段；后台管理页面状态列显示「已注销」（红色标签），已注销用户隐藏「注销会员」按钮，编辑弹窗提示恢复方式。
+- 客户端兼容性：无协议破坏性变更；已注销用户的在线客户端下一次请求收到 `401`，走既有重新登录流程。
+
+### v1.7.0（2026-09-28）
+
+- **新增图像切边增强接口** `POST /api/ai/crop-enhance`（3.2 节）：对接腾讯云 `CropEnhanceImageOCR`，支持切边、弯曲矫正、方向矫正、仅取角点坐标与 7 档增强类型（增亮/锐化/黑白/灰度/去阴影/点阵图）。
+- 服务端代为下载腾讯云返回的临时 `CroppedImageUrl` 并转 Base64 返回（腾讯云已废弃内联 `CroppedImage` 字段），客户端无需访问腾讯云域名；响应含角点坐标 `position`、处理后尺寸与 `requestId`/`traceId` 排障字段。
+- 权限与 AI 去手写一致（`aiEnabled`）；内部重构：腾讯云调用层泛化为 `TencentOcrClient`（统一 TC3 签名与错误翻译），去手写接口协议不变。
+
+### v1.6.0（2026-09-28）
+
+- **错题新增学期字段 `term`**：`1`=上学期（如 7 年上）、`2`=下学期（如 7 年下）、`null`=未指定（历史数据兼容，DDL 自动加列无需迁移）。
+- 添加（5.1）、更新（5.6）、列表筛选（5.2）、随机组卷（5.8）均支持 `term`；EntryDto 返回该字段。非法取值（非 1/2）返回 400。
+- 注意：`term` 筛选只命中明确指定学期的错题，未指定的历史数据在按学期筛选时不出现；可通过 5.6 更新接口补填。
+- 客户端调整指引见本节下方说明（v1.6.0 发布说明附客户端对接清单）。
+
+### v1.5.0（2026-09-28）
+
+- **新增公平随机组卷接口** `POST /api/book/entries/random`（5.8 节）：按错误类型配额抽题，采用「最少练习分层轮转」公平算法——practiceCount 最低层优先、同层随机，保证题库全覆盖轮转（所有错题练到 k 次之前不会有错题练到 k+1 次），杜绝部分错题长期抽不到。
+- 响应含 `byType.poolSize` 各类型题池统计，可直接驱动客户端组卷弹窗的可抽数量展示；接口本身不增加刷题计数，打印成功后由客户端调用 `/practice` 推进公平闭环。
+- 客户端对接方式：替换 `BookView.confirmRandom` 的本地洗牌逻辑（纯随机无公平保证），改调本接口 + 5.5 批量取图。
+
+### v1.4.0（2026-09-28）
+
+- **数据库由 SQLite 迁移为 MySQL 8**：连接信息通过 `MYSQL_HOST`/`MYSQL_PORT`/`MYSQL_DATABASE`/`MYSQL_USERNAME`/`MYSQL_PASSWORD` 环境变量注入（生产必填）；表结构仍由 JPA `ddl-auto=update` 自动建表；应用容器不再需要持久卷（无状态化）。**接口协议无任何变化，客户端无需改动**。
+- 注意：原 SQLite 数据不会自动迁移；如已有正式数据需自行导出导入。
+
+### v1.3.0（2026-09-28）
+
+- **新增错题管理接口**（第 5 节）：错题从客户端本地迁移到服务端统一管理，数据按用户隔离。
+  - `POST /api/book/entries` 单条添加（服务端解析宽高、生成 480px 缩略图、打包 zip 上传，失败自动清理）
+  - `GET /api/book/entries` 分页列表（年级/科目/错误类型筛选，createdAt 倒序）
+  - `GET /api/book/entries/{id}` 单条查询
+  - `GET /api/book/entries/{id}/image?kind=original|thumb` 图片二进制下载（7 天私有缓存头）
+  - `POST /api/book/entries/images` 批量取图（≤50 张，Base64 返回，对应组卷打印场景）
+  - `PUT /api/book/entries/{id}` 更新元数据；`POST /api/book/entries/practice` 刷题次数 +1；`DELETE /api/book/entries/{id}` 删除
+- **图片存储**：zip 压缩（原图 + 缩略图）后存腾讯云 COS（`COS_BUCKET`/`COS_REGION`/`COS_SECRET_ID`/`COS_SECRET_KEY`，凭据缺省复用 AI 的腾讯云密钥），对象键 `book/{userId}/{yyyyMM}/{id}.zip`；未配置 COS 时回退本地目录 `BOOK_LOCAL_DIR`（仅限开发）。
+- 元数据表 `book_entry` 字段与客户端 `entries` 表对齐（见 5.7 映射表），`createdAt` 沿用毫秒时间戳。
+
+### v1.2.0（2026-09-28）
+
+- **会员有效期**：用户新增 `memberExpireAt`（`yyyy-MM-dd`）与 `memberActive`（是否在有效期内）字段，出现在 UserDto 与 `/api/auth/me` 响应中。创建用户不传有效期时**默认一年**；更新用户可修改或清除（传空字符串）有效期；格式错误返回 `400`。
+- **一键注销会员**：新增 `DELETE /api/admin/users/{id}/membership`，清除会员号与有效期并关闭 AI 权限，不踢下线（授权实时生效）。
+- **后台管理页面**：用户列表新增「会员有效期」列（有效/已过期/非会员标签）；创建表单新增有效期选择（默认一年后）；编辑表单支持修改/清除有效期；操作列新增「注销会员」按钮。
+- 兼容性说明：均为新增字段与新增接口，旧客户端不受影响；客户端可根据 `memberActive` 增加会员状态展示与到期提醒。
+
+### v1.1.0（2026-09-28）
+
+- **新增刷新令牌机制**：登录响应新增 `refreshToken`、`refreshExpiresIn` 字段；新增 `POST /api/auth/refresh` 接口（刷新令牌轮换）。访问令牌默认有效期由 7 天调整为 **2 小时**，刷新令牌默认 **30 天**，桌面端可通过静默刷新长期保持登录。退出登录、被踢出、密码重置/修改、账号停用时，访问令牌与刷新令牌一并失效。
+- **AI 擦除响应新增排障字段**：`POST /api/ai/erase` 响应 `data` 新增 `requestId`（腾讯云上游 RequestId）与 `traceId`（服务端日志追踪 ID），用于与腾讯云上游及服务端日志对齐排障。
+- **文档澄清**：明确 `GET /api/auth/captcha` 为**图形验证码**（非短信验证码），且一次即废，每次登录尝试前需重新获取。
+- 兼容性说明：登录响应为新增字段，旧客户端不受影响；但访问令牌 TTL 缩短为 2 小时后，未实现刷新逻辑的客户端需每 2 小时重新登录，**建议客户端同步升级**。
+
+### v1.0.0（2026-09-28）
+
+- 首个版本：图形验证码、登录（手机号+密码+验证码）、单端登录踢出（`4011`）、授权信息 `/api/auth/me`、退出登录、AI 去手写 `/api/ai/erase`（腾讯云凭据后台配置）、管理端用户增删改查/重置密码、后台管理页面 `/admin/index.html`。
+
+
+## 全部现有接口清单与业务契约入口
+
+以下路由由当前Controller核对，均为已有实现；准确参数／输入输出／样例见本文后续认证、AI、管理、错题和V2章节。新增小程序与管理规划接口的122项完整定义及编排见 [MINIAPP-API.md](MINIAPP-API.md)，不能把旧账号作用域接口当作新学生作用域接口。
+
+| 方法 | 已实现路径 | Controller／处理函数 |
+|---|---|---|
+| GET | `/api/admin/agents` | AdminAgentController.list |
+| PUT | `/api/admin/agents/{key}` | AdminAgentController.update |
+| POST | `/api/admin/agents/{key}/reset` | AdminAgentController.reset |
+| DELETE | `/api/admin/agents/results` | AdminAgentController.purgeResults |
+| GET | `/api/admin/ai-stats` | AdminAiStatsController.query |
+| GET | `/api/admin/keepalives` | AdminKeepaliveController.list |
+| GET | `/api/admin/users` | AdminUserController.list |
+| GET | `/api/admin/users/{id}` | AdminUserController.get |
+| POST | `/api/admin/users` | AdminUserController.create |
+| PUT | `/api/admin/users/{id}` | AdminUserController.update |
+| PUT | `/api/admin/users/{id}/password` | AdminUserController.resetPassword |
+| DELETE | `/api/admin/users/{id}/membership` | AdminUserController.cancelMembership |
+| DELETE | `/api/admin/users/{id}` | AdminUserController.delete |
+| POST | `/api/ai/erase` | AiController.erase |
+| POST | `/api/ai/crop-enhance` | AiController.cropEnhance |
+| POST | `/api/ai/paper-process` | AiController.paperProcess |
+| POST | `/api/ai/split-questions` | AiController.splitQuestions |
+| GET | `/api/auth/captcha` | AuthController.captcha |
+| POST | `/api/auth/login` | AuthController.login |
+| POST | `/api/auth/refresh` | AuthController.refresh |
+| GET | `/api/auth/me` | AuthController.me |
+| POST | `/api/auth/password` | AuthController.changePassword |
+| POST | `/api/auth/logout` | AuthController.logout |
+| POST | `/api/book/entries` | BookController.add |
+| GET | `/api/book/entries` | BookController.list |
+| GET | `/api/book/entries/{id}` | BookController.get |
+| POST | `/api/book/entries/images` | BookController.images |
+| GET | `/api/book/entries/{id}/image` | BookController.image |
+| PUT | `/api/book/entries/{id}` | BookController.update |
+| POST | `/api/book/entries/random` | BookController.random |
+| POST | `/api/book/entries/practice` | BookController.practice |
+| POST | `/api/book/entries/{id}/practices` | BookController.addPractice |
+| GET | `/api/book/entries/{id}/practices` | BookController.listPractices |
+| DELETE | `/api/book/entries/{id}` | BookController.delete |
+| GET | `/api/book/practices/history` | BookPracticeHistoryController.history |
+| POST | `/api/agent/analogy` | ClientAgentController.analogy |
+| POST | `/api/agent/explain` | ClientAgentController.explain |
+| POST | `/api/client/keepalive` | ClientKeepaliveController.report |
+| GET | `/api/user/ability` | UserAbilityController.query |
+| GET | `/api/v2/user/ability` | V2AbilityController.ability |
+| GET | `/api/v2/book/entries` | V2BookController.list |
+| POST | `/api/v2/book/entries/random` | V2BookController.random |
+| POST | `/api/v2/book/entries/batch` | V2BookController.batch |
+| PUT | `/api/v2/book/entries/{id}` | V2BookController.edit |
+| POST | `/api/v2/book/entries/reclassify` | V2BookController.reclassify |
+| GET | `/api/v2/meta/capabilities` | V2MetaController.capabilities |
+| GET | `/api/v2/preferences` | V2PreferenceController.get |
+| PUT | `/api/v2/preferences` | V2PreferenceController.put |
+| GET | `/api/v2/subjects` | V2SubjectController.list |
+| POST | `/api/v2/subjects` | V2SubjectController.create |
+| PUT | `/api/v2/subjects/reorder` | V2SubjectController.reorder |
+| PUT | `/api/v2/subjects/{id}` | V2SubjectController.update |
+| DELETE | `/api/v2/subjects/{id}` | V2SubjectController.delete |
+| GET | `/api/v2/subjects/{subjectId}/topics` | V2SubjectController.listTopics |
+| POST | `/api/v2/subjects/{subjectId}/topics` | V2SubjectController.createTopic |
+| PUT | `/api/v2/subjects/{subjectId}/topics/reorder` | V2SubjectController.reorderTopics |
+| PUT | `/api/v2/topics/{id}` | V2TopicController.update |
+| DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
+
+
+版本：v1.22.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+
+> 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 
 - Base URL：`https://<部署域名>`（本地开发 `http://127.0.0.1:8080`）
 - 数据格式：所有请求/响应均为 `application/json; charset=utf-8`
@@ -1251,166 +1495,3 @@ PUT /api/v2/preferences { defaultSubjectId|null, defaultTopicId|null }
 `4091` revision 冲突（409）、`4092` 关联禁删（409）、`4093` 名称重复（409）、`4026` 旧客户端受限（**426**，冻结文案：通用写入阻断「此账号已启用新版科目与主题，请升级至 1.5.0 或以上版本后继续此操作。」；能力统计「旧版客户端无法完整展示当前范围的能力统计，请升级至 1.5.0 或以上版本。」）。
 
 旧客户端（v1）兼容摘要（详见 CONTRACT §10）：未激活账号 v1 行为完全不变（add 双写 subjectId）；已激活账号 v1 add 阻断 426、v1 update 涉主题/自定义科目阻断 426、不含 subject 的 update 与预设间映射放行；v1 读六科返回模板规范名、自定义原样；v1 随机/能力范围含自定义题时 426。开关 `TAXONOMY_V2_ENABLED` 只控入口/新激活，回退不清激活、不回收已激活读写。
-
-## 10. 版本更新记录
-
-### v1.21.1（2026-10-06，产品 1.5.0 服务端首发改版号）
-
-- 改版号说明：v2 分类体系首个对外发布版本定为 1.21.1；1.21.0 仅存在于开发线、未推送镜像。包含 1.21.0 全部内容 + DEF-150-03（`/api/v2/preferences` 补齐）。
-- 发布默认 `TAXONOMY_V2_ENABLED=false`（入口关闭、只读安全），按 CM-04 顺序后续开放。
-
-### v1.21.0（2026-10-06，产品 1.5.0 服务端）
-
-- **v2 分类体系上线**（CONTRACT rev 2 实施）：user_subject/subject_topic/user_taxonomy_pref/book_add_idempotency 新表，book_entry +subject_id/topic_id，sys_user +taxonomy_v2_activated_at；六科惰性幂等初始化；历史数据按「用户+原名称」幂等回填（未知旧值建自定义科目保留，不激活）。
-- 科目/主题管理、批量加入（逐项幂等+部分失败）、三态编辑、批量重新归类、v2 查询/抽题/能力、偏好、capabilities 全量接口（第 9 节）。
-- AI Agent 提示词新增 `{topic}` 变量；entryId 路径服务端解析当前分类名称；缓存哈希含渲染提示词，改名/重新归类自动失效。
-- 旧客户端兼容矩阵与 426 冻结文案落地；`TAXONOMY_V2_ENABLED` 入口开关（默认 false）。
-- 性能实测（PERFORMANCE P1–P6/P9）全部低于预算，见 records/V150-BE-04-EVIDENCE.md。
-- **补遗（前端复核 GAP-150-FE-P1 关闭）**：`GET/PUT /api/v2/preferences` 账号默认选择接口实现补齐（9.5 节）：写入校验归属+ACTIVE（含父科目）、读写不触发激活、开关关闭且未激活时 PUT 403；客户端既有优雅降级无需改动。
-
-### v1.20.0（2026-10-03）
-
-- **新增刷题记录附表** `book_practice_record`：记录每次刷题的时间（`practicedAt`，支持补录）、答案内容（`answerContent`）、正确与否（`correct`）；插入记录同事务 `practiceCount+1`，公平组卷自动纳入答题练习。
-- 新接口：`POST /api/book/entries/{id}/practices`（提交）、`GET /api/book/entries/{id}/practices`（单题明细+汇总）、`GET /api/book/practices/history`（跨题历史，按对错/日期筛选，附用户全量正确率）。
-- EntryDto 新增聚合字段 `recordCount/correctCount/accuracy/lastPracticedAt`（列表/单条/组卷一次 group-by 查询，无 N+1）；删除错题级联删除其刷题记录。
-
-### v1.19.0（2026-10-03）
-
-- **错题数据结构新增字段**：`remark`（用户备注）与 `answer`（答案信息），默认空（null），最长 1000 字。
-- 添加错题（5.1）可携带备注/答案；**修改错题接口**（`PUT /api/book/entries/{id}`，5.6）支持更新与清空（空字符串清除为 null，不传不修改）；列表/单条/组卷/批量取图等所有 EntryDto 均返回两字段。**删除错题接口**已存在（`DELETE /api/book/entries/{id}`，5.9），无需变更。
-- 数据库 `book_entry` 表自动加列，历史数据两字段为 null，客户端无需迁移。
-
-### v1.18.2（2026-10-03）
-
-- **修复成品图旋转 90° 问题**：手机照片显示方向记录在 EXIF Orientation 中，而 ImageIO 解码、服务端重编码与腾讯云引擎输出均不保留 EXIF，导致处理结果回到传感器存储方向（表现为逆时针旋转 90°）。现服务端在去手写/切边增强/切题/试卷处理/错题入库全链路调用前按 EXIF 自动旋转像素（8 种方向全支持），成品图方向与原图显示一致。
-- 新增 `ImageUtil` 与单元测试（orientation=6 旋转、180° 保持尺寸、无 EXIF 原样透传）。
-
-### v1.18.1（2026-10-03）
-
-- **去手写 InternalError 加固**：调用擦除引擎前自动归一化图片（RGB 化、去 alpha、超 4096 边/1200 万像素等比缩、重编码标准 JPEG），规避超大分辨率/非常规格式触发的上游 `InternalError`；`InternalError` 自动重试一次；所有腾讯云上游错误 message 附带 `RequestId` 便于提工单排查。
-
-### v1.18.0（2026-10-03）
-
-- **修复踢出误报**：静默刷新轮换令牌后，客户端并发在途的旧令牌此前会命中"jti 不匹配"被误报 `4011 账号已在其他设备登录`。现记录轮换原因（LOGIN/REFRESH）与旧 jti：REFRESH 轮换后 **120 秒宽限期**内旧访问令牌仍有效、旧刷新令牌重发当前会话令牌（不旋转），仅新登录替换会话才返回 4011。
-- **4011 文案优化**：改为「该账号已在其他设备登录，当前设备已退出。如非本人操作，请立即修改密码」，降低用户"被盗号"恐慌并给出可操作引导；刷新接口失败文案同步区分踢出与其他失效原因。
-- 用户表新增 `prev_session_jti`/`prev_refresh_jti`/`rotate_reason`/`rotated_at` 字段（JPA 自动加列）。
-
-### v1.17.0（2026-10-03）
-
-- **新增用户自助修改密码接口** `POST /api/auth/password`（2.5 节）：校验原密码、新密码 6-64 位且不得与原密码相同；成功后当前双令牌立即失效，客户端重新登录。
-
-### v1.16.0（2026-10-02）
-
-- **Agent 结果缓存（成本控制）**：新表 `ai_agent_result`，每道错题每个 Agent 仅调用一次大模型；命中缓存直接返回（`cached=true`、返回首次 traceId、不耗配额、零 token 成本）。缓存键含提示词指纹，后台改提示词/模型/温度后自动失效重算；直传图片按 SHA-256 去重。
-- **管理端清缓存**：`DELETE /api/admin/agents/results`（按 Agent/题目/全部），后台「Agent管理」每行新增「清空缓存」按钮。
-- 客户端可据 `cached` 字段区分"新分析/历史结果"展示。
-
-### v1.15.2（2026-10-02）
-
-- **修复 Agent 多模态端点选择**：带图调用必须使用 DashScope 多模态端点（spring-ai-alibaba 的 `withMultiModel(true)`），此前走纯文本端点导致 `HTTP 400 InvalidParameter: url error, please check url`。现按请求是否带图自动切换端点；同时改用 `DashScopeChatOptions`（model/temperature/maxToken/multiModel）替代通用 ChatOptions。
-
-### v1.15.1（2026-10-02）
-
-- **修复 Agent 图片传入方式**：spring-ai-alibaba 1.1.2.x 的媒体转换仅支持 `byte[]`（转 data URI）与 `String`（URL），原实现传 `ByteArrayResource` 被序列化为非法 url，导致 DashScope 返回 `HTTP 400 InvalidParameter: url error, please check url`。改为 `Media.builder().data(byte[])` 官方支持方式，多模态读图恢复正常。
-
-### v1.15.0（2026-10-02）
-
-- **新增 Agent 模块**：引入 Spring AI Alibaba（DashScope）最新稳定版，Spring Boot 升级至 3.5.x；上线两个多模态 Agent——**举一反三**（`POST /api/agent/analogy`）与**做题精讲**（`POST /api/agent/explain`），默认模型 `qwen-vl-max`，可直接读错题图。
-- **提示词后台可配**：新表 `ai_agent_config` 种子内置默认系统/用户提示词模板；管理接口 `GET/PUT /api/admin/agents`、`POST /api/admin/agents/{key}/reset`；后台新增「Agent管理」菜单（提示词、模型、温度、maxTokens、启停，保存即时生效）。
-- **权限与配额**：Agent 需登录 + `aiEnabled`；每用户每 Agent 每日配额默认 20 次（`AGENT_DAILY_LIMIT`），超限 429；密钥经 `DASHSCOPE_API_KEY` 注入，未配置返回 503 且不影响服务启动。
-- **成本可视**：`ai_call_log` 新增 `input_tokens`/`output_tokens` 列与 `ANALOGY`/`EXPLAIN` 类型，统计接口与后台页面同步展示 Tokens。
-- 输出契约：模型被约束仅输出 JSON，服务端容错解析（去代码围栏），解析失败自动追加约束重试一次。
-
-### v1.14.0（2026-10-02）
-
-- **后台「客户端心跳」菜单升级为「客户端管理」**：当前实现客户端状态查询——新增关键字查询（手机号/客户端ID 模糊匹配，`GET /api/admin/keepalives` 增加 `keyword` 参数），保留仅在线过滤与 30 秒自动刷新；后续客户端管理操作（如禁用、备注）将在此菜单下扩展。
-- 认证过滤器重构：心跳路径令牌校验失败降级为匿名继续处理，其余路径行为不变。
-
-### v1.13.0（2026-10-02）
-
-- **新增客户端心跳（keepalive）接口** `POST /api/client/keepalive`（第 6 节）：免登录上报，每分钟一条；携带有效令牌记录登录账号，否则记临时用户；令牌无效/过期/被踢时自动降级匿名、不中断上报。每客户端单行 upsert（累计 reportCount、首/最近上报时间）。
-- **管理端**：`GET /api/admin/keepalives`（4.9 节，支持仅在线过滤）；后台管理页面新增「客户端心跳」菜单（在线/离线标签、临时用户标识、30 秒自动刷新）。
-
-### v1.12.0（2026-10-02）
-
-- **新增试卷处理三合一接口** `POST /api/ai/paper-process`（3.4 节）：一次调用串联切边增强→切题检测→整页去手写，返回成品整页图（`imageKind` 标明处理级别）、归一化题框与三步骤状态（含各自腾讯云 RequestId）。
-- 容错策略：切边增强失败回退原图不中断；切题/去手写上游失败整体失败。整页一次擦除使去手写调用次数与题数无关，替代客户端"裁剪→合成→擦除→拆回"旧链路。
-- 三个上游调用分别记入 `ai_call_log`（CROP_ENHANCE/SPLIT_QUESTIONS/ERASE），共享 traceId，统计口径不变。
-
-### v1.11.0（2026-10-02）
-
-- **新增自动切题检测接口** `POST /api/ai/split-questions`（3.3 节）：对接腾讯云「试卷切题（仅检测）」`QuestionSplitLayoutOCR`，返回整页试卷的题目边框（像素 + 归一化 0-1 双坐标、阅读序编号），支撑客户端"拍照→自动框题→点选确认→切题"交互；归一化坐标与客户端选框模型同构，可直接注入。
-- 服务端完成外接矩形化、碎框过滤、重叠/包含去重、阅读序排序；固定关闭腾讯侧切边保证坐标与传入图对齐；检测为空返回空数组供客户端回退手动框选。
-- 调用计入 AI 权限与调用流水：`ai_call_log` 新增类型 `SPLIT_QUESTIONS`，管理页统计与 `ai-stats` 的 aiType 筛选同步支持「自动切题」。
-
-### v1.10.0（2026-09-30）
-
-- **新增用户能力模型接口** `GET /api/user/ability`（5.11 节）：客户端按登录态查询自己的能力五边形数据，默认同时返回三科 + 综合共 4 个模型；五维 = 细心度/理解力/概念清晰/规范度（四类错题反向）+ 练习勤奋度（刷题正向）。
-- 评分含时间衰减（半衰期 60 天）与刷题缓解（刷题实时抬升对应维度，上限 60%），模型实时计算、随刷题/加题动态变化；无数据时 `score=null` 供客户端渲染空态。
-- 数据严格按用户隔离，仅能查询本人；该能力面向客户端展示，不提供管理端入口。
-
-### v1.9.0（2026-09-30）
-
-- **后台管理更名为「拾星错题本后台管理」**，页面改为多菜单布局（侧边栏：用户管理 / AI调用统计）。
-- **新增 AI 调用统计**：服务端自动记录每次 AI 调用流水（`ai_call_log` 表：用户、AI类型、成败、错误码、耗时、输入/输出大小、traceId、腾讯云 RequestId）；管理接口 `GET /api/admin/ai-stats`（4.8 节）支持按手机号、AI 类型（ERASE/CROP_ENHANCE）、时间范围（yyyy-MM-dd）组合查询，返回分页流水与成功/失败汇总；统计页含汇总卡片与流水表格。
-- 权限拒绝（403 未开通AI）不记入流水；流水写入失败不影响 AI 调用主流程。
-
-### v1.8.0（2026-09-30）
-
-- **注销会员语义强化**：`DELETE /api/admin/users/{id}/membership` 现在会标记账号 `cancelled=true`、立即踢下线并禁止登录；登录失败响应与密码错误完全一致（`401 手机号或密码错误`），客户端无需改动即表现为"账号或密码错误"。管理员编辑用户重新填写会员号/有效期即自动恢复。不能注销自己的账号。
-- UserDto 新增 `cancelled` 字段；后台管理页面状态列显示「已注销」（红色标签），已注销用户隐藏「注销会员」按钮，编辑弹窗提示恢复方式。
-- 客户端兼容性：无协议破坏性变更；已注销用户的在线客户端下一次请求收到 `401`，走既有重新登录流程。
-
-### v1.7.0（2026-09-28）
-
-- **新增图像切边增强接口** `POST /api/ai/crop-enhance`（3.2 节）：对接腾讯云 `CropEnhanceImageOCR`，支持切边、弯曲矫正、方向矫正、仅取角点坐标与 7 档增强类型（增亮/锐化/黑白/灰度/去阴影/点阵图）。
-- 服务端代为下载腾讯云返回的临时 `CroppedImageUrl` 并转 Base64 返回（腾讯云已废弃内联 `CroppedImage` 字段），客户端无需访问腾讯云域名；响应含角点坐标 `position`、处理后尺寸与 `requestId`/`traceId` 排障字段。
-- 权限与 AI 去手写一致（`aiEnabled`）；内部重构：腾讯云调用层泛化为 `TencentOcrClient`（统一 TC3 签名与错误翻译），去手写接口协议不变。
-
-### v1.6.0（2026-09-28）
-
-- **错题新增学期字段 `term`**：`1`=上学期（如 7 年上）、`2`=下学期（如 7 年下）、`null`=未指定（历史数据兼容，DDL 自动加列无需迁移）。
-- 添加（5.1）、更新（5.6）、列表筛选（5.2）、随机组卷（5.8）均支持 `term`；EntryDto 返回该字段。非法取值（非 1/2）返回 400。
-- 注意：`term` 筛选只命中明确指定学期的错题，未指定的历史数据在按学期筛选时不出现；可通过 5.6 更新接口补填。
-- 客户端调整指引见本节下方说明（v1.6.0 发布说明附客户端对接清单）。
-
-### v1.5.0（2026-09-28）
-
-- **新增公平随机组卷接口** `POST /api/book/entries/random`（5.8 节）：按错误类型配额抽题，采用「最少练习分层轮转」公平算法——practiceCount 最低层优先、同层随机，保证题库全覆盖轮转（所有错题练到 k 次之前不会有错题练到 k+1 次），杜绝部分错题长期抽不到。
-- 响应含 `byType.poolSize` 各类型题池统计，可直接驱动客户端组卷弹窗的可抽数量展示；接口本身不增加刷题计数，打印成功后由客户端调用 `/practice` 推进公平闭环。
-- 客户端对接方式：替换 `BookView.confirmRandom` 的本地洗牌逻辑（纯随机无公平保证），改调本接口 + 5.5 批量取图。
-
-### v1.4.0（2026-09-28）
-
-- **数据库由 SQLite 迁移为 MySQL 8**：连接信息通过 `MYSQL_HOST`/`MYSQL_PORT`/`MYSQL_DATABASE`/`MYSQL_USERNAME`/`MYSQL_PASSWORD` 环境变量注入（生产必填）；表结构仍由 JPA `ddl-auto=update` 自动建表；应用容器不再需要持久卷（无状态化）。**接口协议无任何变化，客户端无需改动**。
-- 注意：原 SQLite 数据不会自动迁移；如已有正式数据需自行导出导入。
-
-### v1.3.0（2026-09-28）
-
-- **新增错题管理接口**（第 5 节）：错题从客户端本地迁移到服务端统一管理，数据按用户隔离。
-  - `POST /api/book/entries` 单条添加（服务端解析宽高、生成 480px 缩略图、打包 zip 上传，失败自动清理）
-  - `GET /api/book/entries` 分页列表（年级/科目/错误类型筛选，createdAt 倒序）
-  - `GET /api/book/entries/{id}` 单条查询
-  - `GET /api/book/entries/{id}/image?kind=original|thumb` 图片二进制下载（7 天私有缓存头）
-  - `POST /api/book/entries/images` 批量取图（≤50 张，Base64 返回，对应组卷打印场景）
-  - `PUT /api/book/entries/{id}` 更新元数据；`POST /api/book/entries/practice` 刷题次数 +1；`DELETE /api/book/entries/{id}` 删除
-- **图片存储**：zip 压缩（原图 + 缩略图）后存腾讯云 COS（`COS_BUCKET`/`COS_REGION`/`COS_SECRET_ID`/`COS_SECRET_KEY`，凭据缺省复用 AI 的腾讯云密钥），对象键 `book/{userId}/{yyyyMM}/{id}.zip`；未配置 COS 时回退本地目录 `BOOK_LOCAL_DIR`（仅限开发）。
-- 元数据表 `book_entry` 字段与客户端 `entries` 表对齐（见 5.7 映射表），`createdAt` 沿用毫秒时间戳。
-
-### v1.2.0（2026-09-28）
-
-- **会员有效期**：用户新增 `memberExpireAt`（`yyyy-MM-dd`）与 `memberActive`（是否在有效期内）字段，出现在 UserDto 与 `/api/auth/me` 响应中。创建用户不传有效期时**默认一年**；更新用户可修改或清除（传空字符串）有效期；格式错误返回 `400`。
-- **一键注销会员**：新增 `DELETE /api/admin/users/{id}/membership`，清除会员号与有效期并关闭 AI 权限，不踢下线（授权实时生效）。
-- **后台管理页面**：用户列表新增「会员有效期」列（有效/已过期/非会员标签）；创建表单新增有效期选择（默认一年后）；编辑表单支持修改/清除有效期；操作列新增「注销会员」按钮。
-- 兼容性说明：均为新增字段与新增接口，旧客户端不受影响；客户端可根据 `memberActive` 增加会员状态展示与到期提醒。
-
-### v1.1.0（2026-09-28）
-
-- **新增刷新令牌机制**：登录响应新增 `refreshToken`、`refreshExpiresIn` 字段；新增 `POST /api/auth/refresh` 接口（刷新令牌轮换）。访问令牌默认有效期由 7 天调整为 **2 小时**，刷新令牌默认 **30 天**，桌面端可通过静默刷新长期保持登录。退出登录、被踢出、密码重置/修改、账号停用时，访问令牌与刷新令牌一并失效。
-- **AI 擦除响应新增排障字段**：`POST /api/ai/erase` 响应 `data` 新增 `requestId`（腾讯云上游 RequestId）与 `traceId`（服务端日志追踪 ID），用于与腾讯云上游及服务端日志对齐排障。
-- **文档澄清**：明确 `GET /api/auth/captcha` 为**图形验证码**（非短信验证码），且一次即废，每次登录尝试前需重新获取。
-- 兼容性说明：登录响应为新增字段，旧客户端不受影响；但访问令牌 TTL 缩短为 2 小时后，未实现刷新逻辑的客户端需每 2 小时重新登录，**建议客户端同步升级**。
-
-### v1.0.0（2026-09-28）
-
-- 首个版本：图形验证码、登录（手机号+密码+验证码）、单端登录踢出（`4011`）、授权信息 `/api/auth/me`、退出登录、AI 去手写 `/api/ai/erase`（腾讯云凭据后台配置）、管理端用户增删改查/重置密码、后台管理页面 `/admin/index.html`。

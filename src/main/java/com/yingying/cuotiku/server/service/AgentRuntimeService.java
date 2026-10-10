@@ -65,6 +65,13 @@ public class AgentRuntimeService {
 
     public AgentRawResult run(String agentKey, Map<String, String> vars,
                               byte[] imageBytes, MimeType imageMime, User user, String entryId) {
+        return run(agentKey, vars, imageBytes, imageMime, user, entryId, false);
+    }
+
+    /** 小程序显式刷新可跳过缓存；默认调用保持旧客户端行为。 */
+    public AgentRawResult run(String agentKey, Map<String, String> vars,
+                              byte[] imageBytes, MimeType imageMime, User user, String entryId,
+                              boolean forceRefresh) {
         String traceId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         AiAgentConfig config = configService.require(agentKey);
         if (!config.isEnabled()) {
@@ -75,7 +82,7 @@ public class AgentRuntimeService {
         String promptHash = promptHash(config, userPromptPreview);
         Optional<AiAgentResult> cached =
                 resultRepository.findByAgentKeyAndSubjectKeyAndPromptHash(agentKey, subjectKey, promptHash);
-        if (cached.isPresent()) {
+        if (!forceRefresh && cached.isPresent()) {
             try {
                 JsonNode cachedJson = objectMapper.readTree(cached.get().getResultJson());
                 log.info("Agent命中缓存 traceId={} agent={} subjectKey={} 原traceId={}",
@@ -220,10 +227,19 @@ public class AgentRuntimeService {
 
     private void saveResult(String agentKey, String subjectKey, String promptHash, JsonNode json, String traceId) {
         try {
-            AiAgentResult entity = new AiAgentResult();
+            AiAgentResult entity = resultRepository.findByAgentKeyAndSubjectKeyAndPromptHash(agentKey, subjectKey, promptHash).orElseGet(AiAgentResult::new);
             entity.setAgentKey(agentKey);
             entity.setSubjectKey(subjectKey);
             entity.setPromptHash(promptHash);
+            var mini = com.yingying.cuotiku.server.mini.MiniAgentContext.current();
+            if (mini != null) {
+                entity.setUserId(mini.userId()); entity.setStudentId(mini.studentId());
+                entity.setEntryId(mini.entryId()); entity.setInputRevisionId(mini.revisionId());
+                entity.setInputContentHash(mini.inputHash()); entity.setResultType(agentKey);
+                entity.setProvider("DASHSCOPE"); entity.setStatus("SUCCEEDED");
+                var config = configService.require(agentKey);
+                entity.setModel(config.getModel()); entity.setConfigVersion(config.getConfigVersion());
+            }
             entity.setResultJson(json.toString());
             entity.setTraceId(traceId);
             resultRepository.save(entity);
@@ -270,6 +286,15 @@ public class AgentRuntimeService {
             entity.setTraceId(traceId);
             entity.setInputTokens(inputTokens);
             entity.setOutputTokens(outputTokens);
+            var mini = com.yingying.cuotiku.server.mini.MiniAgentContext.current();
+            if (mini != null) {
+                entity.setStudentId(mini.studentId()); entity.setEntryId(mini.entryId());
+                entity.setInputAssetId(mini.assetId()); entity.setProvider("DASHSCOPE");
+                entity.setApiAction(agentKey); entity.setStatus(success ? "SUCCEEDED" : "FAILED");
+                var config = configService.require(agentKey);
+                entity.setModel(config.getModel());
+                entity.setConfigSnapshotJson("{\"configVersion\":" + config.getConfigVersion() + "}");
+            }
             entity.setInputBytes(inputBytes);
             entity.setOutputBytes(0);
             entity.setDurationMs(0);

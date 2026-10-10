@@ -5,45 +5,44 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "client_keepalive", indexes = {
-        @Index(name = "idx_keepalive_last_seen", columnList = "lastSeenAt"),
+        @Index(name = "idx_keepalive_last_seen", columnList = "last_seen_at"),
         @Index(name = "idx_keepalive_phone", columnList = "phone")
 })
 public class ClientKeepalive {
 
     @Id
-    @Column(length = 64)
+    @Column(name = "client_id", length = 64)
     private String clientId;
 
-    @Column(length = 20)
-    private String phone;
-
+    @Column(name = "phone", length = 20)
+    private String phone;    @Column(name = "user_id")
     private Long userId;
 
-    @Column(nullable = false)
+    @Column(name = "logged_in", nullable = false)
     private boolean loggedIn = false;
 
-    @Column(length = 32)
+    @Column(name = "app_version", length = 32)
     private String appVersion;
 
-    @Column(length = 32)
+    @Column(name = "platform", length = 32)
     private String platform;
 
-    @Column(length = 64)
+    @Column(name = "os_version", length = 64)
     private String osVersion;
 
-    @Column(length = 32)
+    @Column(name = "state", length = 32)
     private String state;
 
-    @Column(length = 256)
+    @Column(name = "detail", length = 256)
     private String detail;
 
-    @Column(nullable = false)
+    @Column(name = "report_count", nullable = false)
     private long reportCount = 0;
 
-    @Column(nullable = false)
+    @Column(name = "first_seen_at", nullable = false)
     private Instant firstSeenAt;
 
-    @Column(nullable = false)
+    @Column(name = "last_seen_at", nullable = false)
     private Instant lastSeenAt;
 
     public String getClientId() { return clientId; }
@@ -70,4 +69,13 @@ public class ClientKeepalive {
     public void setFirstSeenAt(Instant firstSeenAt) { this.firstSeenAt = firstSeenAt; }
     public Instant getLastSeenAt() { return lastSeenAt; }
     public void setLastSeenAt(Instant lastSeenAt) { this.lastSeenAt = lastSeenAt; }
+
+    // Target model extensions remain nullable for pre-student historical rows.
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private User userRef;
+
+    public User getUserRef() { return userRef; }
+
 }

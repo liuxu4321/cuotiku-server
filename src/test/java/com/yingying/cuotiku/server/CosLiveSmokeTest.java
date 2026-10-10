@@ -14,8 +14,8 @@ class CosLiveSmokeTest {
 
     @Test
     void uploadDownloadDelete() {
-        String secretId = System.getenv("TENCENT_SECRET_ID");
-        String secretKey = System.getenv("TENCENT_SECRET_KEY");
+        String secretId = configuredOrFallback("COS_SECRET_ID", "TENCENT_SECRET_ID");
+        String secretKey = configuredOrFallback("COS_SECRET_KEY", "TENCENT_SECRET_KEY");
         Assumptions.assumeTrue(secretId != null && !secretId.isBlank(), "未提供腾讯云密钥，跳过真实COS冒烟");
 
         if (System.getenv("COS_LIST_BUCKETS") != null) {
@@ -44,8 +44,13 @@ class CosLiveSmokeTest {
             assertArrayEquals(content, downloaded);
             System.out.println("下载校验一致, " + downloaded.length + " bytes");
         } finally {
-            storage.delete(key);
+            storage.deleteStrict(key);
             System.out.println("已删除测试对象: " + key);
         }
+    }
+
+    private static String configuredOrFallback(String primary, String fallback) {
+        String value = System.getenv(primary);
+        return value == null || value.isBlank() ? System.getenv(fallback) : value;
     }
 }
