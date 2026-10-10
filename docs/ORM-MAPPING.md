@@ -35,7 +35,7 @@
 
 Hibernate update 能添加表／列／索引，但不会可靠删除旧唯一索引，也不负责业务数据回填。已有库在切换到学生业务前需检查：
 
-1. `user_subject` 的新 `scope_key`、`uk_subject_scope_name`、`uk_subject_scope_system` 已创建；旧 `uk_user_norm_name`、`uk_user_system_key` 会阻止不同学生同名科目，须在确认新约束完整后按既有运维升级流程移除。
+1. `user_subject` 的新 `scope_key`、`uk_subject_scope_name`、`uk_subject_scope_system` 已创建；自 1.22.2 起，Hibernate 自动升级先确认／创建新范围唯一索引，再移除旧 `uk_user_norm_name`、`uk_user_system_key`；DDL 失败阻断启动，无需手工迁移。
 2. `ai_agent_result` 的新 `cache_key`、`uk_agent_result_cache` 已创建；旧 `uk_agent_result` 会阻止同题输入版本的新结果，应同样在新约束确认后移除。
 3. 历史账号创建默认学生并回填分类／错题／练习／AI 的 student_id；关联归属检查完成前不启用小程序多人档案业务接口。旧 API 仍按账号查询，本次未改为学生过滤。
 4. 历史偏好迁移到 student_taxonomy_pref；旧 user_taxonomy_pref 为旧接口保留。

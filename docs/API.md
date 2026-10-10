@@ -2,6 +2,10 @@
 
 ## 版本更新记录
 
+### v1.22.2（2026-10-10，源码修复，待部署）
+
+修复旧库保留 `uk_user_norm_name`、`uk_user_system_key` 时，不同学生保存同名科目失败的问题。ORM 自动升级先建立 `uk_subject_scope_name`、`uk_subject_scope_system`，再移除两个已确认的旧账号范围索引；不修改科目记录。同一学生及未归属学生的历史账号范围仍禁止重复名称／预设键。Schema DDL 出错即阻断启动，避免约束升级失败后继续提供服务。真实 MySQL 旧表测试覆盖一次升级、重复启动、跨学生同名及同范围重名拒绝。接口契约不变。
+
 ### v1.22.1（2026-10-10，源码修复，待部署）
 
 修复从旧库升级时生成列 `user_subject.scope_key` 先于其依赖 `student_id` 添加而失败的问题。继续使用 JPA `ddl-auto=update`，通过 MySQL 方言将已有表的普通列 DDL 排在生成列之前，不使用手工迁移脚本。补充真实 MySQL 旧表升级、连续两次初始化、历史数据与唯一索引保留，以及与小程序相同的配置列表请求测试。接口契约不变。验证：全量测试 126 项，0 失败，8 项真实云服务测试按配置跳过；jar 打包通过。
@@ -248,7 +252,7 @@ AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`last
 | DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
 
 
-版本：v1.22.1 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.22.2 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 

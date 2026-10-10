@@ -13,7 +13,7 @@
 
   <groupId>com.yingying.cuotiku</groupId>
   <artifactId>yycuotiku-server</artifactId>
-  <version>1.22.1</version>
+  <version>1.22.2</version>
   <name>yycuotiku-server</name>
   <description>盈盈错题库后台服务：登录/授权/AI去手写/用户管理</description>
 

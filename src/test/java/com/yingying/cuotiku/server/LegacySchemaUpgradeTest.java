@@ -17,7 +17,7 @@ class LegacySchemaUpgradeTest {
       mysql.start();
       var source = new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
       try (var connection = source.getConnection(); var sql = connection.createStatement()) {
-        sql.execute("create table user_subject (id bigint not null auto_increment primary key, user_id bigint not null, name varchar(30) not null, normalized_name varchar(30) not null, system_key varchar(16), sort_order int not null, status varchar(10) not null, revision int not null, created_at datetime(6) not null, updated_at datetime(6) not null)");
+        sql.execute("create table user_subject (id bigint not null auto_increment primary key, user_id bigint not null, name varchar(30) not null, normalized_name varchar(30) not null, system_key varchar(16), sort_order int not null, status varchar(10) not null, revision int not null, created_at datetime(6) not null, updated_at datetime(6) not null, unique key uk_user_norm_name(user_id,normalized_name), unique key uk_user_system_key(user_id,system_key))");
         sql.execute("insert into user_subject(user_id,name,normalized_name,sort_order,status,revision,created_at,updated_at) values (7,'数学','数学',0,'ACTIVE',0,now(),now())");
       }
       for (int startup = 0; startup < 2; startup++) {
@@ -37,6 +37,16 @@ class LegacySchemaUpgradeTest {
           try (var connection = source.getConnection(); var sql = connection.createStatement();
               var indexes = sql.executeQuery("select count(distinct INDEX_NAME) from information_schema.STATISTICS where TABLE_SCHEMA=database() and TABLE_NAME='user_subject' and INDEX_NAME in ('uk_subject_scope_name','uk_subject_scope_system') and NON_UNIQUE=0")) {
             assertTrue(indexes.next()); assertEquals(2, indexes.getInt(1));
+          }
+          try (var connection = source.getConnection(); var sql = connection.createStatement()) {
+            if (startup == 0) {
+              String insert = "insert into user_subject(user_id,student_id,name,normalized_name,system_key,sort_order,status,revision,created_at,updated_at) values (7,%s,'语文','语文','CHINESE',0,'ACTIVE',0,now(),now())";
+              sql.execute(String.format(insert, "'child-a'"));
+              sql.execute(String.format(insert, "'child-b'"));
+              sql.execute(String.format(insert, "null"));
+              assertThrows(java.sql.SQLException.class, () -> sql.execute(String.format(insert, "'child-a'")));
+              assertThrows(java.sql.SQLException.class, () -> sql.execute(String.format(insert, "null")));
+            }
           }
         } finally { factory.destroy(); }
       }

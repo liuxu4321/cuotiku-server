@@ -129,7 +129,7 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.22.1 -t jefferliu/yycuotiku-server:latest .
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.22.2 -t jefferliu/yycuotiku-server:latest .
 docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```
@@ -168,3 +168,8 @@ mvn package
 若科目配置请求出现 `Unknown column ... scope_key`，原因是 1.22.0 首次升级旧表时生成列先于 `student_id` 添加。1.22.1 保留 JPA 自动更新，由 `DependencyOrderedMySqlDialect` 保证普通列先添加。部署新 jar／镜像并重启后会自动补齐缺失列，保留原记录；无需执行手工 SQL。不要覆盖配置中的 `spring.jpa.database-platform`，以免绕过依赖顺序修复。
 
 已处于 1.22.0 且首次启动没有阻断服务的环境，可以先重启一次重试添加（原启动通常已继续添加 `student_id`），再检查科目配置是否恢复；永久修复使用 1.22.1。本仓库生成的 jar 不代表正式环境已部署。
+
+
+### 1.22.2 旧科目唯一索引升级
+
+部署后重启会通过 Hibernate schema update 自动建立学生范围唯一索引，再移除 `uk_user_norm_name` 与 `uk_user_system_key`。不同学生允许同名科目，同一学生仍禁止重名，未归属学生的历史数据保留账号级唯一性。无需删除历史科目或手工执行 SQL。DDL 失败会阻断启动，请保留 `hibernate.hbm2ddl.halt_on_error=true`，检查启动日志中的首个 DDL 错误后修正。此版本尚未推送镜像或部署正式环境。

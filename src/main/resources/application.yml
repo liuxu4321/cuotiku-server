@@ -11,6 +11,8 @@ spring:
     database-platform: com.yingying.cuotiku.server.config.DependencyOrderedMySqlDialect
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate.hbm2ddl.halt_on_error: true
     open-in-view: false
   servlet:
     multipart:
