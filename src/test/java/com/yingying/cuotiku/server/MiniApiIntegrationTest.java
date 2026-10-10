@@ -1219,4 +1219,21 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
         adminToken,
         4092);
   }
+  /** 与客户端配置页相同的列表路径和分页大小，覆盖空列表及主题计数。 */
+  @Test
+  void foundationConfigurationListsMatchClientRequests() throws Exception {
+    JsonNode subjects = ok(base() + "/subjects?limit=100", HttpMethod.GET, null, token);
+    assertEquals(subject, subjects.path("items").get(0).path("id").asText());
+    assertEquals(1, subjects.path("items").get(0).path("topicCount").asInt());
+    assertFalse(subjects.path("hasMore").asBoolean());
+    JsonNode topics = ok(base() + "/subjects/" + subject + "/topics?limit=100", HttpMethod.GET, null, token);
+    assertEquals(topic, topics.path("items").get(0).path("id").asText());
+    JsonNode errors = ok(base() + "/error-types?limit=100", HttpMethod.GET, null, token);
+    assertEquals(error, errors.path("items").get(0).path("id").asText());
+    String emptyStudent = ok("/api/mini/v1/students", HttpMethod.POST,
+        map("nickname", "无分类学生", "grade", 1, "term", 1), token).path("id").asText();
+    JsonNode empty = ok("/api/mini/v1/students/" + emptyStudent + "/subjects?limit=100", HttpMethod.GET, null, token);
+    assertEquals(0, empty.path("items").size());
+  }
+
 }

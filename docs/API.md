@@ -2,6 +2,10 @@
 
 ## 版本更新记录
 
+### v1.22.1（2026-10-10，源码修复，待部署）
+
+修复从旧库升级时生成列 `user_subject.scope_key` 先于其依赖 `student_id` 添加而失败的问题。继续使用 JPA `ddl-auto=update`，通过 MySQL 方言将已有表的普通列 DDL 排在生成列之前，不使用手工迁移脚本。补充真实 MySQL 旧表升级、连续两次初始化、历史数据与唯一索引保留，以及与小程序相同的配置列表请求测试。接口契约不变。验证：全量测试 126 项，0 失败，8 项真实云服务测试按配置跳过；jar 打包通过。
+
 ### 小程序认证对接补充（2026-10-10）
 
 微信身份交换适配官方text/plain JSON响应，避免合法code被错误报为502。新增适配器测试验证成功、无效code及异常响应。
@@ -244,7 +248,7 @@ AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`last
 | DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
 
 
-版本：v1.22.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.22.1 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 
