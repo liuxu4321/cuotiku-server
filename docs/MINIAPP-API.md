@@ -4,10 +4,11 @@
 
 | 契约版本 | 日期 | 内容 | 实现状态 |
 |---|---|---|---|
+| 1.0.2 | 2026-10-11 | 新增ADM-37整包模板导入，补齐管理端可操作流程及归属字段 | 服务端1.23.1源码实现，待部署 |
 | 1.0.1 | 2026-10-10 | 118个新增接口、异步Worker、PDF及管理审计完成；明确运行边界 | 服务端1.22.0源码实现，未部署 |
 | 1.0.0 | 2026-10-10 | 首次完整接口清单、输入输出与样例、客户端业务编排、管理接口及兼容规则 | 设计基线；除明确“已有”项外均待实现 |
 
-契约版本与服务端包版本分别管理。当前后台包版本1.22.0，新增118个业务接口已在源码实现，另复用4个认证接口。配置与验收见SERVER-IMPLEMENTATION.md；未部署生产。用户故事见 `USER-STORIES.md`，实体见 `DATABASE-MODEL.md`，现有后端已实现接口见权威 `API.md`。
+契约版本与服务端包版本分别管理。当前后台包版本1.23.1，新增119个业务接口已在源码实现，另复用4个认证接口。配置与验收见SERVER-IMPLEMENTATION.md；未部署生产。用户故事见 `USER-STORIES.md`，实体见 `DATABASE-MODEL.md`，现有后端已实现接口见权威 `API.md`。
 
 新增小程序接口统一使用 `/api/mini/v1`；新增管理接口使用 `/api/admin/mini/v1`，避免改变桌面端现有 `/api`、`/api/v2` 契约。“已实现”指源码接口，云服务可用性仍取决于配置与capabilities。已有兼容接口的精确行为以Controller、DTO及 `API.md` 为准。
 
@@ -139,6 +140,7 @@
 | [ADM-34](#adm-34) | `PATCH /api/admin/mini/v1/feedbacks/{feedbackId}` | 处理反馈并保存内部备注 | 已实现／ADMIN Bearer |
 | [ADM-35](#adm-35) | `GET /api/admin/mini/v1/outbox-events` | 查询队列投递和失败重试 | 已实现／ADMIN Bearer |
 | [ADM-36](#adm-36) | `POST /api/admin/mini/v1/outbox-events/{eventId}/retry` | 恢复任务消息投递 | 已实现／ADMIN Bearer |
+| [ADM-37](#adm-37--模板整包导入v12312026-10-11) | `POST /api/admin/mini/v1/templates/import` | 整包录入分类、SVG、模板版本并发布 | 已实现／ADMIN Bearer |
 
 ## 2. 通用对接约定
 
@@ -8144,3 +8146,100 @@ PRT-03直到READY → PRT-06 → 下载PDF
 ## 管理端返回字段补充（v1.23.0，2026-10-11）
 
 ADM-25／26 图片处理任务、ADM-28／29 PDF任务、ADM-31资产、ADM-33反馈列表补充userId（字符串，系统资产为null）；ADM-31同时补充studentId。仅管理员DTO增加归属诊断字段，小程序用户DTO保持不变。管理网页称PDF导出任务，接口路径仍使用print-tasks，READY表示PDF生成成功，不表示纸张打印。操作说明见[ADMIN-CONSOLE.md](ADMIN-CONSOLE.md)。
+
+## ADM-37 · 模板整包导入（v1.23.1，2026-10-11）
+
+`POST /api/admin/mini/v1/templates/import`
+
+认证：ADMIN Bearer。写操作记录管理审计。一次导入1～32个模板，先校验所有布局及SVG，再在同一数据库事务中保存；同代码分类复用，同代码同布局版本复用，不修改已发布版本内容。模板代码归属其他分类或已停用时拒绝，不自动改变这些状态。COS是外部存储，存储失败时数据库事务回滚，不能将失败批次视为发布成功。
+
+| 输入字段 | 类型 | 说明 |
+|---|---|---|
+| clientRequestId | string | 必填，64字符以内；未知结果重试用原键和原数据 |
+| publish | boolean | 默认true；false时保存草稿 |
+| bundle | object | 完整模板文件数据 |
+| bundle.format | string | shixing-template-presets-v1 |
+| bundle.categoryCreate | object | code、name、sortOrder、enabled，与ADM-11相同 |
+| bundle.templates | array | 1～32项，不允许重复模板code |
+| bundle.templates[].templateCreate | object | code、name、sortOrder；categoryId由系统解析，忽略占位符 |
+| bundle.templates[].versionCreate | object | 与ADM-16相同；previewSvgAssetId由系统生成，忽略占位符 |
+| bundle.templates[].previewAssetCreate.svg | string | 可选受控SVG；缺省按layout生成示意图 |
+
+请求示例：
+
+```json
+{
+  "clientRequestId": "import-a4-001",
+  "publish": true,
+  "bundle": {
+    "format": "shixing-template-presets-v1",
+    "categoryCreate": {
+      "code": "A4",
+      "name": "A4",
+      "sortOrder": 10,
+      "enabled": true
+    },
+    "templates": [
+      {
+        "name": "A4单卡",
+        "templateCreate": {
+          "categoryId": "__A4_CATEGORY_ID__",
+          "code": "A4_1_CARD",
+          "name": "A4单卡",
+          "sortOrder": 10
+        },
+        "previewAssetCreate": {
+          "purpose": "TEMPLATE_PREVIEW",
+          "mimeType": "image/svg+xml",
+          "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 210 297\" width=\"210\" height=\"297\"><title>A4单卡</title><rect x=\"0.5\" y=\"0.5\" width=\"209\" height=\"296\" fill=\"#ffffff\" stroke=\"#aeb9c9\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"12.0\" width=\"186.0\" height=\"273.0\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/></svg>"
+        },
+        "versionCreate": {
+          "paperWidthMm": "210.00",
+          "paperHeightMm": "297.00",
+          "orientation": "PORTRAIT",
+          "slotsPerPage": 1,
+          "rendererType": "DECLARATIVE",
+          "rendererVersion": "1",
+          "layout": {
+            "schemaVersion": 1,
+            "unit": "mm",
+            "paper": {
+              "width": 210,
+              "height": 297,
+              "orientation": "PORTRAIT"
+            },
+            "margins": {
+              "top": 12,
+              "right": 12,
+              "bottom": 12,
+              "left": 12
+            },
+            "slots": [
+              {
+                "x": 12.0,
+                "y": 12.0,
+                "width": 186.0,
+                "height": 273.0
+              }
+            ],
+            "imageFit": "CONTAIN",
+            "showAnswer": false
+          },
+          "codeContent": null,
+          "previewSvgAssetId": "__PREVIEW_SVG_ASSET_ID__"
+        }
+      }
+    ]
+  }
+}
+```
+
+完整四项导入可直接使用[完整四模板文件](template-presets/A4-CARD-TEMPLATES.json)，将其作为bundle对象提交。
+
+返回示例：
+
+```json
+{"code":0,"message":"ok","data":{"categoryId":"category-uuid","items":[{"templateId":"template-uuid","name":"A4单卡","code":"A4_1_CARD","versionId":"version-uuid","versionNo":1,"status":"PUBLISHED","reused":false}]}}
+```
+
+失败：400文件格式／布局／SVG非法，403非管理员，409同键不同输入或代码冲突。完整用户流程：PDF模板 → 导入模板文件 → 选择JSON → 检查示意图 → 导入并发布 → 结果显示已发布；用户无需手动替换ID或单独上传SVG。

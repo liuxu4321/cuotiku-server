@@ -129,7 +129,7 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.23.0 -t jefferliu/yycuotiku-server:latest .
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.23.1 -t jefferliu/yycuotiku-server:latest .
 docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```
@@ -177,3 +177,7 @@ mvn package
 ### 1.23.0 管理端业务补全
 
 内置 `/admin/` 新增小程序账号权益、微信与学生诊断、模板分类、PDF模板与不可变版本发布、图片处理／PDF导出任务排障重试、COS资产清理申请、反馈处理、AI调用明细、消息队列重试、归属诊断。详见 [ADMIN-CONSOLE.md](docs/ADMIN-CONSOLE.md)。源码已修改，部署状态以实际发布为准。
+
+### 1.23.1 模板整包导入
+
+PDF模板菜单支持选择JSON文件、显示四张版式预览、整包导入分类／模板／SVG／版本并发布。重复相同请求和同代码同布局文件复用版本；非法文件先校验，不产生半批模板。手工保存和发布后返回版本列表。

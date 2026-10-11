@@ -57,6 +57,14 @@ public class MiniTemplateController {
     return ApiResponse.ok(service.preview(templateId, query));
   }
 
+  /** 整包导入模板及SVG，可直接发布；ADMIN权限和操作审计沿用管理入口。 */
+  @PostMapping("/api/admin/mini/v1/templates/import")
+  public ApiResponse<Object> importTemplates(
+      @AuthenticationPrincipal AuthenticatedUser principal,
+      @Valid @RequestBody MiniBody body) {
+    return ApiResponse.ok(service.importBundle(principal.user(), body.payload()));
+  }
+
   /** ADM-10：管理模板分类列表。 */
   @GetMapping("/api/admin/mini/v1/template-categories")
   public ApiResponse<Object> adm10(

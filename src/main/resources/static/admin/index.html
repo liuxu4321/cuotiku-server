@@ -376,6 +376,8 @@ async function doCancelMembership(id, phone) {
 }
 
 function openModal(title, bodyHtml, onOk) {
+  $('modalOk').textContent = '确定';
+  $('modalOk').disabled = false;
   $('modalTitle').textContent = title;
   $('modalBody').innerHTML = bodyHtml;
   $('modalError').textContent = '';
@@ -789,7 +791,8 @@ async function miniSave(action) {
     await action();
     closeModal();
     toast("保存成功");
-    if (miniState.key) await loadMini(false);
+    if (miniState.versionTemplate && miniState.key === "templates") await templateVersions(miniState.versionTemplate);
+    else if (miniState.key) await loadMini(false);
   } catch (e) {
     miniError(e);
   } finally {
@@ -834,6 +837,7 @@ function miniFilterField(key, field) {
   );
 }
 function showMini(key) {
+  miniState.versionTemplate = null;
   miniState.key = key;
   miniState.history = [];
   miniState.cursor = null;
@@ -848,7 +852,7 @@ function showMini(key) {
   if (key === "categories")
     $("miniCreate").append(miniButton("增加分类", () => editCategory()));
   if (key === "templates")
-    $("miniCreate").append(miniButton("增加模板", () => editTemplate()));
+    $("miniCreate").append(miniButton("增加模板", () => editTemplate()), miniButton("导入模板文件", openTemplateImport));
   loadMini(false);
 }
 async function loadMini(append = false, previous = false) {
@@ -1027,6 +1031,7 @@ function editCategory(row) {
   );
 }
 async function editTemplate(row) {
+  miniState.versionTemplate = null;
   try {
     const categories = await api(miniRoot + "/template-categories");
     miniState.categories = categories.items;
@@ -1079,6 +1084,7 @@ async function editTemplate(row) {
   }
 }
 async function templateVersions(template) {
+  miniState.versionTemplate = template;
   try {
     const data = await api(
       miniRoot + "/templates/" + encodeURIComponent(template.id) + "/versions",
@@ -1199,7 +1205,7 @@ function editVersion(template, version, copy = true) {
         ],
         version?.orientation || "PORTRAIT",
       ) +
-      '<p>声明式布局 JSON（毫米）：</p><textarea id="verLayout" rows="10" style="width:100%"></textarea><p>受控代码说明（可选，不执行脚本）：</p><textarea id="verCode" rows="3" style="width:100%"></textarea><div id="verPreview" style="text-align:center"></div><div id="verTools"></div>',
+      '<details><summary>高级布局（可选，默认自动生成）</summary><p>声明式布局 JSON（毫米）：</p><textarea id="verLayout" rows="10" style="width:100%"></textarea><p>受控代码说明（可选，不执行脚本）：</p><textarea id="verCode" rows="3" style="width:100%"></textarea></details><div id="verPreview" style="text-align:center"></div><div id="verTools"></div>',
     () =>
       miniSave(async () => {
         const l = JSON.parse($("verLayout").value);
@@ -1245,6 +1251,24 @@ function editVersion(template, version, copy = true) {
   );
   $("verLayout").value = JSON.stringify(layout, null, 2);
   $("verCode").value = version?.codeContent || "";
+  let customLayout = !!version;
+  $("verLayout").oninput = () => { customLayout = true; };
+  for (const id of ["verWidth", "verHeight", "verSlots", "verOrientation"]) {
+    $(id).onchange = () => {
+      if (customLayout) return;
+      try {
+        let width = Number($("verWidth").value), height = Number($("verHeight").value);
+        const n = Number($("verSlots").value);
+        if (!Number.isInteger(n) || n < 1 || n > 16) throw new Error("题数须为1～16");
+        const landscape = $("verOrientation").value === "LANDSCAPE";
+        if ((landscape && width < height) || (!landscape && width > height)) [width, height] = [height, width];
+        $("verWidth").value = width; $("verHeight").value = height;
+        $("verLayout").value = JSON.stringify(defaultLayout(width, height, n), null, 2);
+        drawVersion();
+      } catch (e) { miniError(e); }
+    };
+  }
+  $("modalOk").textContent = "保存草稿";
   $("verTools").append(
     miniButton("生成均分题框", () => {
       try {
@@ -1253,6 +1277,7 @@ function editVersion(template, version, copy = true) {
           n = Number($("verSlots").value);
         if (!Number.isInteger(n) || n < 1 || n > 16)
           throw new Error("题数须为1～16");
+        customLayout = false;
         $("verLayout").value = JSON.stringify(defaultLayout(w, h, n), null, 2);
         $("verOrientation").value = w > h ? "LANDSCAPE" : "PORTRAIT";
         drawVersion();
@@ -1498,6 +1523,151 @@ function removeMiniMembership(row) {
         ),
       ),
   );
+}
+
+
+// 文件内容只作JSON数据处理，不执行代码；服务端负责整包校验、权限和重复导入保护。
+let templateImportPending = null;
+function openTemplateImport() {
+  openModal(
+    "导入模板文件",
+    '<p>选择模板 JSON 文件；确认后自动处理分类、SVG、版本并发布。同代码同布局再次导入会复用。</p><input id="templateImportFile" type="file" accept=".json,application/json"><div id="templateImportSummary" style="margin-top:16px"></div><label class="switch"><input id="templateImportPublish" type="checkbox" checked>导入后立即发布（取消勾选则保存草稿）</label>',
+    submitTemplateImport,
+  );
+  $("modalOk").textContent = "导入并发布";
+  $("modalOk").disabled = true;
+  $("templateImportFile").onchange = async (e) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) throw new Error("模板文件不能超过2MB");
+      prepareTemplateImport(JSON.parse(await file.text()));
+    } catch (error) {
+      templateImportPending = null;
+      $("modalOk").disabled = true;
+      miniError(error);
+    }
+  };
+  $("templateImportPublish").onchange = () => {
+    $("modalOk").textContent = $("templateImportPublish").checked
+      ? "导入并发布"
+      : "导入草稿";
+  };
+  if (templateImportPending) renderTemplateImport();
+}
+function prepareTemplateImport(bundle) {
+  if (
+    bundle?.format !== "shixing-template-presets-v1" ||
+    !bundle.categoryCreate?.code ||
+    !Array.isArray(bundle.templates) ||
+    !bundle.templates.length ||
+    bundle.templates.length > 32
+  )
+    throw new Error("模板文件格式不正确");
+  const codes = new Set();
+  for (const item of bundle.templates) {
+    const t = item.templateCreate,
+      v = item.versionCreate;
+    if (!t?.name || !/^[A-Z0-9_]+$/.test(t.code) || codes.has(t.code))
+      throw new Error("模板名称、代码或重复代码无效");
+    codes.add(t.code);
+    if (v?.rendererType !== "DECLARATIVE" || v.rendererVersion !== "1")
+      throw new Error("仅支持声明式渲染器版本1");
+    validateVersionInput(v);
+  }
+  templateImportPending = {
+    bundle,
+    clientRequestId: crypto.randomUUID(),
+    publish: null,
+  };
+  renderTemplateImport();
+}
+function validateVersionInput(v) {
+  const l = v?.layout;
+  if (
+    !l ||
+    l.schemaVersion !== 1 ||
+    l.unit !== "mm" ||
+    l.imageFit !== "CONTAIN" ||
+    l.showAnswer
+  )
+    throw new Error("布局需使用schemaVersion=1、mm、CONTAIN且不包含答案");
+  if (
+    l.paper.width !== Number(v.paperWidthMm) ||
+    l.paper.height !== Number(v.paperHeightMm) ||
+    l.paper.orientation !== v.orientation ||
+    l.slots.length !== v.slotsPerPage
+  )
+    throw new Error("纸张参数或题框数量与布局不一致");
+  return previewSvg(l);
+}
+function renderTemplateImport() {
+  const area = $("templateImportSummary");
+  area.replaceChildren();
+  for (const item of templateImportPending.bundle.templates) {
+    const row = document.createElement("div");
+    row.style.cssText =
+      "display:inline-flex;flex-direction:column;align-items:center;gap:8px;margin:8px";
+    const image = document.createElement("img");
+    image.alt = item.templateCreate.name;
+    image.style.cssText = "height:150px;width:110px";
+    image.src =
+      "data:image/svg+xml;charset=utf-8," +
+      encodeURIComponent(previewSvg(item.versionCreate.layout));
+    const text = document.createElement("span");
+    text.textContent =
+      item.templateCreate.name + " · " + item.versionCreate.slotsPerPage + "卡";
+    row.append(image, text);
+    area.append(row);
+  }
+  $("modalError").textContent = "";
+  $("modalOk").disabled = false;
+}
+async function submitTemplateImport() {
+  if (miniState.busy || !templateImportPending) return;
+  miniState.busy = true;
+  $("modalOk").disabled = true;
+  const pending = templateImportPending;
+  try {
+    const publish = $("templateImportPublish").checked;
+    if (pending.publish !== null && pending.publish !== publish)
+      throw new Error("上次提交结果未确认，请按原发布选项重试");
+    pending.publish = publish;
+    const result = await api(miniRoot + "/templates/import", {
+      method: "POST",
+      body: JSON.stringify(pending),
+    });
+    templateImportPending = null;
+    const count = result.items.length;
+    closeModal();
+    toast("成功导入 " + count + " 个模板");
+    openModal("模板导入完成", '<div id="templateImportResults"></div>', () => {
+      closeModal();
+      loadMini(false);
+    });
+    $("modalOk").textContent = "完成";
+    for (const item of result.items) {
+      const row = document.createElement("p");
+      row.style.margin = "10px 0";
+      row.textContent =
+        item.name +
+        " · v" +
+        item.versionNo +
+        " · " +
+        (item.status === "PUBLISHED" ? "已发布" : "草稿") +
+        (item.reused ? "（复用已有版本）" : "");
+      $("templateImportResults").append(row);
+    }
+  } catch (e) {
+    if (e.status >= 400 && e.status < 500 && templateImportPending) {
+      templateImportPending.publish = null;
+      templateImportPending.clientRequestId = crypto.randomUUID();
+    }
+    miniError(e);
+  } finally {
+    miniState.busy = false;
+    $("modalOk").disabled = false;
+  }
 }
 
 (async function init() {

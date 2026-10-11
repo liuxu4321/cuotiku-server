@@ -2,6 +2,10 @@
 
 ## 版本更新记录
 
+### v1.23.1（2026-10-11，模板整包导入，待部署）
+
+新增ADMIN接口 `POST /api/admin/mini/v1/templates/import`，支持模板数据包校验、分类ID自动解析、SVG存储、模板版本创建及发布。使用clientRequestId回执防止重复提交；同代码同布局重新导入复用版本。管理页提供文件选择、预览、导入结果及原请求重试；手工保存版本后返回版本列表。详见MINIAPP-API.md管理端导入补充。
+
 ### v1.23.0（2026-10-11，管理端补全，待部署）
 
 内置管理网页接入既有 ADM 接口：小程序账号／权益、微信与学生诊断、模板分类与版本发布、图片处理与PDF导出任务排障、资产清理申请、反馈处理、AI调用明细、消息队列及数据诊断。模板草稿编辑提供声明式布局和SVG示意图上传；发布后只可复制新版本。用户业务统一为PDF导出，管理端不新增物理打印确认。API路径兼容；管理处理任务、PDF任务、资产和反馈的返回值补充userId归属字段，管理资产补充studentId，不改变小程序用户侧DTO。操作指南见 [ADMIN-CONSOLE.md](ADMIN-CONSOLE.md)。
@@ -256,7 +260,7 @@ AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`last
 | DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
 
 
-版本：v1.23.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.23.1 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 

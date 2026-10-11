@@ -370,7 +370,7 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
                 for (var method : mapping.getMethodsCondition().getMethods())
                   actual.add(method + " " + path);
             });
-    assertEquals(118, expected.size());
+    assertEquals(119, expected.size());
     assertTrue(
         actual.containsAll(expected),
         () -> "Missing " + expected.stream().filter(x -> !actual.contains(x)).toList());
@@ -819,6 +819,58 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
         map("version", 0, "selectedTemplateId", null),
         token,
         4091);
+  }
+
+  @Test
+  void templateFileImportsPublishReuseAndRenderAllFourLayouts() throws Exception {
+    JsonNode bundle = json.readTree(Files.readString(Path.of("docs/template-presets/A4-CARD-TEMPLATES.json")));
+    String prefix = "IMPORT_" + id().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+    ((com.fasterxml.jackson.databind.node.ObjectNode) bundle.path("categoryCreate")).put("code", prefix);
+    for (JsonNode item : bundle.path("templates")) {
+      var identity = (com.fasterxml.jackson.databind.node.ObjectNode) item.path("templateCreate");
+      identity.put("code", prefix + "_" + item.path("versionCreate").path("slotsPerPage").asInt());
+    }
+    Object body = map("clientRequestId", id(), "bundle", bundle, "publish", true);
+    String endpoint = "/api/admin/mini/v1/templates/import";
+    code(endpoint, HttpMethod.POST, body, token, 403);
+    JsonNode imported = ok(endpoint, HttpMethod.POST, body, adminToken);
+    assertEquals(4, imported.path("items").size());
+    assertEquals(imported, ok(endpoint, HttpMethod.POST, body, adminToken));
+    JsonNode repeated = ok(endpoint, HttpMethod.POST,
+        map("clientRequestId", id(), "bundle", bundle, "publish", true), adminToken);
+    List<Object> sources = new ArrayList<>();
+    for (int i = 0; i < 4; i++) sources.add(map("sourceType", "ENTRY", "sourceId", entry(photo())));
+    for (int i = 0; i < 4; i++) {
+      JsonNode item = imported.path("items").get(i);
+      assertEquals("PUBLISHED", item.path("status").asText());
+      assertTrue(repeated.path("items").get(i).path("reused").asBoolean());
+      assertEquals(item.path("versionId").asText(), repeated.path("items").get(i).path("versionId").asText());
+      assertEquals(1, ok("/api/admin/mini/v1/templates/" + item.path("templateId").asText() + "/versions",
+          HttpMethod.GET, null, adminToken).path("items").size());
+      JsonNode version = ok("/api/mini/v1/templates/" + item.path("templateId").asText() + "/versions/" + item.path("versionId").asText(),
+          HttpMethod.GET, null, token);
+      assertEquals(i + 1, version.path("slotsPerPage").asInt());
+      String taskId = ok(base() + "/print-tasks", HttpMethod.POST,
+          map("clientRequestId", id(), "templateVersionId", item.path("versionId").asText(), "sourceType", "COLLECTION", "copies", 1, "sources", sources), token)
+          .path("id").asText();
+      MiniPdfRenderer.Output output = renderer.render(prints.beginRender(taskId));
+      try (var pdf = Loader.loadPDF(output.bytes())) {
+        assertEquals((4 + i) / (i + 1), pdf.getNumberOfPages());
+        assertEquals(210 * 72 / 25.4, pdf.getPage(0).getMediaBox().getWidth(), .1);
+      }
+    }
+  }
+
+  @Test
+  void invalidTemplateImportDoesNotCreatePartialCategoryOrTemplates() throws Exception {
+    JsonNode bundle = json.readTree(Files.readString(Path.of("docs/template-presets/A4-CARD-TEMPLATES.json")));
+    String codeValue = "BAD_" + id().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+    ((com.fasterxml.jackson.databind.node.ObjectNode) bundle.path("categoryCreate")).put("code", codeValue);
+    ((com.fasterxml.jackson.databind.node.ObjectNode) bundle.path("templates").get(3).path("versionCreate")).put("slotsPerPage", 9);
+    code("/api/admin/mini/v1/templates/import", HttpMethod.POST,
+        map("clientRequestId", id(), "bundle", bundle), adminToken, 400);
+    assertFalse(ok("/api/admin/mini/v1/template-categories", HttpMethod.GET, null, adminToken)
+        .path("items").toString().contains(codeValue));
   }
 
   @Test

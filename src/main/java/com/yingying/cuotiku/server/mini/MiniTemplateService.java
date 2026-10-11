@@ -22,10 +22,99 @@ import org.w3c.dom.*;
 public class MiniTemplateService {
   private final MiniSupport s;
   private final MiniAssetService assets;
+  private final MiniIdempotency receipts;
 
-  public MiniTemplateService(MiniSupport s, MiniAssetService assets) {
+  public MiniTemplateService(MiniSupport s, MiniAssetService assets, MiniIdempotency receipts) {
     this.s = s;
     this.assets = assets;
+    this.receipts = receipts;
+  }
+
+  /** 整包先校验，再事务内录入；同代码同布局复用版本，网络重试复用回执。 */
+  public Object importBundle(User operator, JsonNode body) {
+    JsonNode bundle = body.path("bundle");
+    if (!"shixing-template-presets-v1".equals(bundle.path("format").asText()))
+      throw ApiException.badRequest("不支持的模板文件格式");
+    JsonNode categoryBody = bundle.path("categoryCreate");
+    String categoryCode = machineCode(categoryBody, "code");
+    required(categoryBody, "name", 64);
+    if (categoryCode.length() > 32) throw ApiException.badRequest("分类代码最长32字符");
+    List<JsonNode> entries = array(bundle, "templates", 32);
+    if (entries.isEmpty()) throw ApiException.badRequest("模板文件不能为空");
+    Set<String> codes = new HashSet<>();
+    for (JsonNode entry : entries) {
+      JsonNode identity = entry.path("templateCreate");
+      String code = machineCode(identity, "code");
+      if (!codes.add(code)) throw ApiException.badRequest("文件内模板代码重复");
+      required(identity, "name", 64);
+      integer(identity, "sortOrder", 0, 0, 100000);
+      var versionBody = entry.path("versionCreate").deepCopy();
+      if (!versionBody.isObject()) throw ApiException.badRequest("缺少模板版本");
+      ((com.fasterxml.jackson.databind.node.ObjectNode) versionBody).remove("previewSvgAssetId");
+      applyVersion(new PrintTemplateVersion(), versionBody);
+      validateSvg(importSvg(entry));
+    }
+    boolean publish = bool(body, "publish", true);
+    return receipts.once(operator, "TEMPLATE_IMPORT", required(body, "clientRequestId", 64), body, () -> {
+      List<PrintTemplateCategory> categories = s.find(PrintTemplateCategory.class, map("code", categoryCode));
+      PrintTemplateCategory category;
+      if (categories.isEmpty()) {
+        String id = ((Map<String, Object>) createCategory(categoryBody)).get("id").toString();
+        category = s.get(PrintTemplateCategory.class, id);
+      } else category = categories.get(0);
+      s.em.lock(category, LockModeType.PESSIMISTIC_WRITE);
+      if (!Boolean.TRUE.equals(category.getEnabled())) throw ApiException.conflict("同代码分类已停用，请先启用分类");
+      List<Object> result = new ArrayList<>();
+      // 在任何COS写入之前检查模板代码冲突，避免一半成功后失败。
+      for (JsonNode entry : entries) {
+        List<PrintTemplate> found = s.find(PrintTemplate.class, map("code", entry.path("templateCreate").path("code").asText()));
+        if (!found.isEmpty() && (!category.getId().equals(found.get(0).getCategoryId()) || "DISABLED".equals(found.get(0).getStatus())))
+          throw ApiException.conflict("模板代码属于其他分类或模板已停用：" + found.get(0).getCode());
+      }
+      for (JsonNode entry : entries) {
+        var identity = (com.fasterxml.jackson.databind.node.ObjectNode) entry.path("templateCreate").deepCopy();
+        identity.put("categoryId", category.getId());
+        List<PrintTemplate> found = s.find(PrintTemplate.class, map("code", identity.path("code").asText()));
+        PrintTemplate template;
+        if (found.isEmpty()) {
+          String id = ((Map<String, Object>) createTemplate(identity)).get("id").toString();
+          template = s.get(PrintTemplate.class, id);
+        } else template = found.get(0);
+        s.em.lock(template, LockModeType.PESSIMISTIC_WRITE);
+        var versionBody = (com.fasterxml.jackson.databind.node.ObjectNode) entry.path("versionCreate").deepCopy();
+        versionBody.remove("previewSvgAssetId");
+        PrintTemplateVersion candidate = new PrintTemplateVersion();
+        applyVersion(candidate, versionBody);
+        PrintTemplateVersion matched = s.find(PrintTemplateVersion.class, map("templateId", template.getId())).stream()
+            .filter(v -> candidate.getCodeHash().equals(v.getCodeHash()) && v.getPreviewSvgAssetId() != null)
+            .max(Comparator.comparing(PrintTemplateVersion::getVersionNo)).orElse(null);
+        boolean reused = matched != null;
+        if (matched == null) {
+          String assetId = ((Map<String, Object>) uploadPreview(s.json.valueToTree(map("purpose", "TEMPLATE_PREVIEW", "mimeType", "image/svg+xml", "svg", importSvg(entry))))).get("id").toString();
+          versionBody.put("previewSvgAssetId", assetId);
+          String id = ((Map<String, Object>) createVersion(template.getId(), versionBody)).get("id").toString();
+          matched = s.get(PrintTemplateVersion.class, id);
+        }
+        if (publish) publish(template.getId(), matched.getId());
+        result.add(map("templateId", template.getId(), "name", template.getName(), "code", template.getCode(), "versionId", matched.getId(), "versionNo", matched.getVersionNo(), "status", matched.getStatus(), "reused", reused));
+      }
+      return map("categoryId", category.getId(), "items", result);
+    });
+  }
+
+  private String importSvg(JsonNode entry) {
+    String supplied = text(entry.path("previewAssetCreate"), "svg");
+    if (supplied != null) return supplied;
+    JsonNode layout = entry.path("versionCreate").path("layout");
+    StringBuilder svg = new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ")
+        .append(layout.path("paper").path("width").asDouble()).append(" ")
+        .append(layout.path("paper").path("height").asDouble()).append("\">");
+    for (JsonNode slot : layout.path("slots")) {
+      svg.append("<rect x=\"").append(slot.path("x").asDouble()).append("\" y=\"")
+          .append(slot.path("y").asDouble()).append("\" width=\"").append(slot.path("width").asDouble())
+          .append("\" height=\"").append(slot.path("height").asDouble()).append("\" fill=\"none\" stroke=\"#718198\"/>");
+    }
+    return svg.append("</svg>").toString();
   }
 
   public PrintTemplate published(String id) {

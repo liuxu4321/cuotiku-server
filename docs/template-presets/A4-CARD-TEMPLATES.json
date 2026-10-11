@@ -1,0 +1,250 @@
+{
+  "format": "shixing-template-presets-v1",
+  "description": "A4纵向单卡、双卡、三卡、四卡。所有布局坐标单位为毫米；卡片为题图放置区域，当前PDF渲染器不绘制卡片边框或答案区。",
+  "instructions": [
+    "管理端1.23.1及以上：PDF模板 → 导入模板文件 → 选择本文件 → 检查预览 → 导入并发布。",
+    "无需修改分类ID和预览资产ID，系统会自动处理占位符。",
+    "相同代码相同布局重复导入会复用版本；同代码不同布局创建新版本。",
+    "也可取消立即发布，仅保存草稿后在版本列表发布。"
+  ],
+  "categoryCreate": {
+    "code": "A4",
+    "name": "A4",
+    "sortOrder": 10,
+    "enabled": true
+  },
+  "templates": [
+    {
+      "name": "A4单卡",
+      "templateCreate": {
+        "categoryId": "__A4_CATEGORY_ID__",
+        "code": "A4_1_CARD",
+        "name": "A4单卡",
+        "sortOrder": 10
+      },
+      "previewAssetCreate": {
+        "purpose": "TEMPLATE_PREVIEW",
+        "mimeType": "image/svg+xml",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 210 297\" width=\"210\" height=\"297\"><title>A4单卡</title><rect x=\"0.5\" y=\"0.5\" width=\"209\" height=\"296\" fill=\"#ffffff\" stroke=\"#aeb9c9\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"12.0\" width=\"186.0\" height=\"273.0\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/></svg>"
+      },
+      "versionCreate": {
+        "paperWidthMm": "210.00",
+        "paperHeightMm": "297.00",
+        "orientation": "PORTRAIT",
+        "slotsPerPage": 1,
+        "rendererType": "DECLARATIVE",
+        "rendererVersion": "1",
+        "layout": {
+          "schemaVersion": 1,
+          "unit": "mm",
+          "paper": {
+            "width": 210,
+            "height": 297,
+            "orientation": "PORTRAIT"
+          },
+          "margins": {
+            "top": 12,
+            "right": 12,
+            "bottom": 12,
+            "left": 12
+          },
+          "slots": [
+            {
+              "x": 12.0,
+              "y": 12.0,
+              "width": 186.0,
+              "height": 273.0
+            }
+          ],
+          "imageFit": "CONTAIN",
+          "showAnswer": false
+        },
+        "codeContent": null,
+        "previewSvgAssetId": "__PREVIEW_SVG_ASSET_ID__"
+      }
+    },
+    {
+      "name": "A4双卡",
+      "templateCreate": {
+        "categoryId": "__A4_CATEGORY_ID__",
+        "code": "A4_2_CARD",
+        "name": "A4双卡",
+        "sortOrder": 20
+      },
+      "previewAssetCreate": {
+        "purpose": "TEMPLATE_PREVIEW",
+        "mimeType": "image/svg+xml",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 210 297\" width=\"210\" height=\"297\"><title>A4双卡</title><rect x=\"0.5\" y=\"0.5\" width=\"209\" height=\"296\" fill=\"#ffffff\" stroke=\"#aeb9c9\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"12.0\" width=\"186.0\" height=\"132.5\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"152.5\" width=\"186.0\" height=\"132.5\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/></svg>"
+      },
+      "versionCreate": {
+        "paperWidthMm": "210.00",
+        "paperHeightMm": "297.00",
+        "orientation": "PORTRAIT",
+        "slotsPerPage": 2,
+        "rendererType": "DECLARATIVE",
+        "rendererVersion": "1",
+        "layout": {
+          "schemaVersion": 1,
+          "unit": "mm",
+          "paper": {
+            "width": 210,
+            "height": 297,
+            "orientation": "PORTRAIT"
+          },
+          "margins": {
+            "top": 12,
+            "right": 12,
+            "bottom": 12,
+            "left": 12
+          },
+          "slots": [
+            {
+              "x": 12.0,
+              "y": 12.0,
+              "width": 186.0,
+              "height": 132.5
+            },
+            {
+              "x": 12.0,
+              "y": 152.5,
+              "width": 186.0,
+              "height": 132.5
+            }
+          ],
+          "imageFit": "CONTAIN",
+          "showAnswer": false
+        },
+        "codeContent": null,
+        "previewSvgAssetId": "__PREVIEW_SVG_ASSET_ID__"
+      }
+    },
+    {
+      "name": "A4三卡",
+      "templateCreate": {
+        "categoryId": "__A4_CATEGORY_ID__",
+        "code": "A4_3_CARD",
+        "name": "A4三卡",
+        "sortOrder": 30
+      },
+      "previewAssetCreate": {
+        "purpose": "TEMPLATE_PREVIEW",
+        "mimeType": "image/svg+xml",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 210 297\" width=\"210\" height=\"297\"><title>A4三卡</title><rect x=\"0.5\" y=\"0.5\" width=\"209\" height=\"296\" fill=\"#ffffff\" stroke=\"#aeb9c9\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"12.0\" width=\"186.0\" height=\"85.67\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"105.67\" width=\"186.0\" height=\"85.67\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"199.33\" width=\"186.0\" height=\"85.67\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/></svg>"
+      },
+      "versionCreate": {
+        "paperWidthMm": "210.00",
+        "paperHeightMm": "297.00",
+        "orientation": "PORTRAIT",
+        "slotsPerPage": 3,
+        "rendererType": "DECLARATIVE",
+        "rendererVersion": "1",
+        "layout": {
+          "schemaVersion": 1,
+          "unit": "mm",
+          "paper": {
+            "width": 210,
+            "height": 297,
+            "orientation": "PORTRAIT"
+          },
+          "margins": {
+            "top": 12,
+            "right": 12,
+            "bottom": 12,
+            "left": 12
+          },
+          "slots": [
+            {
+              "x": 12.0,
+              "y": 12.0,
+              "width": 186.0,
+              "height": 85.67
+            },
+            {
+              "x": 12.0,
+              "y": 105.67,
+              "width": 186.0,
+              "height": 85.67
+            },
+            {
+              "x": 12.0,
+              "y": 199.33,
+              "width": 186.0,
+              "height": 85.67
+            }
+          ],
+          "imageFit": "CONTAIN",
+          "showAnswer": false
+        },
+        "codeContent": null,
+        "previewSvgAssetId": "__PREVIEW_SVG_ASSET_ID__"
+      }
+    },
+    {
+      "name": "A4四卡",
+      "templateCreate": {
+        "categoryId": "__A4_CATEGORY_ID__",
+        "code": "A4_4_CARD",
+        "name": "A4四卡",
+        "sortOrder": 40
+      },
+      "previewAssetCreate": {
+        "purpose": "TEMPLATE_PREVIEW",
+        "mimeType": "image/svg+xml",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 210 297\" width=\"210\" height=\"297\"><title>A4四卡</title><rect x=\"0.5\" y=\"0.5\" width=\"209\" height=\"296\" fill=\"#ffffff\" stroke=\"#aeb9c9\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"12.0\" width=\"186.0\" height=\"62.25\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"82.25\" width=\"186.0\" height=\"62.25\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"152.5\" width=\"186.0\" height=\"62.25\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/><rect x=\"12.0\" y=\"222.75\" width=\"186.0\" height=\"62.25\" rx=\"1\" fill=\"none\" stroke=\"#718198\" stroke-width=\"0.6\"/></svg>"
+      },
+      "versionCreate": {
+        "paperWidthMm": "210.00",
+        "paperHeightMm": "297.00",
+        "orientation": "PORTRAIT",
+        "slotsPerPage": 4,
+        "rendererType": "DECLARATIVE",
+        "rendererVersion": "1",
+        "layout": {
+          "schemaVersion": 1,
+          "unit": "mm",
+          "paper": {
+            "width": 210,
+            "height": 297,
+            "orientation": "PORTRAIT"
+          },
+          "margins": {
+            "top": 12,
+            "right": 12,
+            "bottom": 12,
+            "left": 12
+          },
+          "slots": [
+            {
+              "x": 12.0,
+              "y": 12.0,
+              "width": 186.0,
+              "height": 62.25
+            },
+            {
+              "x": 12.0,
+              "y": 82.25,
+              "width": 186.0,
+              "height": 62.25
+            },
+            {
+              "x": 12.0,
+              "y": 152.5,
+              "width": 186.0,
+              "height": 62.25
+            },
+            {
+              "x": 12.0,
+              "y": 222.75,
+              "width": 186.0,
+              "height": 62.25
+            }
+          ],
+          "imageFit": "CONTAIN",
+          "showAnswer": false
+        },
+        "codeContent": null,
+        "previewSvgAssetId": "__PREVIEW_SVG_ASSET_ID__"
+      }
+    }
+  ]
+}
