@@ -8140,3 +8140,7 @@ PRT-03直到READY → PRT-06 → 下载PDF
 模板首期只支持DECLARATIVE、rendererVersion=1、schemaVersion=1、毫米坐标和CONTAIN图片布局，showAnswer只能为false。代码片段可存储为不可变版本，但不会执行任意代码。copies已展开进PDF；READY表示文件生成成功，用户主动确认才进入PRINT_CONFIRMED，后台不检测物理出纸。
 
 云识别、Agent与微信登录需要真实凭据，普通自动化测试采用上游桩。上传先写临时对象，验证后转为独立不可变资产，旧PUT地址不能覆盖已确认图片。临时对象清理需配置COS生命周期规则。本地存储额外提供上传／下载二进制端点，使用接口返回URL即可。Worker提供至少一次投递、10分钟租约与续租，基础设施失败最多3次自动投递；业务失败通过重试接口恢复。详见SERVER-IMPLEMENTATION.md。
+
+## 管理端返回字段补充（v1.23.0，2026-10-11）
+
+ADM-25／26 图片处理任务、ADM-28／29 PDF任务、ADM-31资产、ADM-33反馈列表补充userId（字符串，系统资产为null）；ADM-31同时补充studentId。仅管理员DTO增加归属诊断字段，小程序用户DTO保持不变。管理网页称PDF导出任务，接口路径仍使用print-tasks，READY表示PDF生成成功，不表示纸张打印。操作说明见[ADMIN-CONSOLE.md](ADMIN-CONSOLE.md)。

@@ -60,7 +60,7 @@
   .pager { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .modal-mask { position: fixed; inset: 0; background: rgba(15,18,28,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
-  .modal { width: 420px; max-height: 90vh; overflow: auto; }
+  .modal { width: min(720px, 94vw); max-height: 90vh; overflow: auto; }
   .modal h2 { font-size: 16px; margin-bottom: 18px; }
   .modal .row2 { display: flex; gap: 12px; }
   .modal .row2 .field { flex: 1; }
@@ -76,6 +76,7 @@
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
   .err-cell { max-width: 260px; }
   .err-cell .msg { color: var(--danger); font-size: 12.5px; }
+  .form-row{display:flex;flex-direction:column;gap:6px;margin:12px 0}.form-row label{font-size:13px;color:var(--muted)}.form-row input,.modal select,.modal textarea{padding:9px;border:1px solid var(--border);border-radius:8px;max-width:100%}.modal select{margin:8px 8px 8px 0}#miniRows td{max-width:250px;overflow-wrap:anywhere}#miniHeading{font-size:20px;margin-bottom:18px}#miniError{margin-bottom:12px}.sidebar{position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}#miniPrevious,#miniNext{margin-top:16px;margin-right:8px}button:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -111,6 +112,16 @@
       <button class="menu-item" data-menu="stats" onclick="switchMenu('stats')">AI调用统计</button>
       <button class="menu-item" data-menu="keepalive" onclick="switchMenu('keepalive')">客户端管理</button>
       <button class="menu-item" data-menu="agents" onclick="switchMenu('agents')">Agent管理</button>
+<button class="menu-item" data-menu="accounts" onclick="switchMenu('accounts')">小程序账号与权益</button>
+<button class="menu-item" data-menu="categories" onclick="switchMenu('categories')">模板分类</button>
+<button class="menu-item" data-menu="templates" onclick="switchMenu('templates')">PDF模板</button>
+<button class="menu-item" data-menu="jobs" onclick="switchMenu('jobs')">图片处理任务</button>
+<button class="menu-item" data-menu="pdfs" onclick="switchMenu('pdfs')">PDF导出任务</button>
+<button class="menu-item" data-menu="assets" onclick="switchMenu('assets')">对象存储资产</button>
+<button class="menu-item" data-menu="feedbacks" onclick="switchMenu('feedbacks')">用户反馈</button>
+<button class="menu-item" data-menu="calls" onclick="switchMenu('calls')">AI调用明细</button>
+<button class="menu-item" data-menu="queue" onclick="switchMenu('queue')">消息队列</button>
+<button class="menu-item" data-menu="integrity" onclick="switchMenu('integrity')">数据诊断</button>
     </nav>
     <main class="content"><div class="content-inner">
 
@@ -207,6 +218,7 @@
         </table>
       </section>
 
+<section id="miniSection" class="hidden"><h2 id="miniHeading"></h2><div id="miniFilters" class="toolbar" style="flex-wrap:wrap"></div><div class="toolbar"><button class="btn ghost" onclick="loadMini(false)">查询／刷新</button><div id="miniCreate"></div></div><div id="miniError" class="error-msg"></div><div id="miniRows"></div><button class="btn ghost" id="miniPrevious" disabled onclick="loadMini(false,true)">上一页</button><button class="btn ghost" id="miniNext" disabled onclick="loadMini(true)">下一页</button></section>
     </div></main>
   </div>
 </div>
@@ -253,15 +265,18 @@ async function api(path, options = {}) {
     if (state.token) { state.token = ''; localStorage.removeItem('yy_admin_token'); showLogin(); }
     throw new Error((body && body.message) || '登录已失效，请重新登录');
   }
-  if (!res.ok || (body && body.code !== 0)) throw new Error((body && body.message) || ('请求失败 HTTP ' + res.status));
+  if (!res.ok || (body && body.code !== 0)) { const error=new Error((body && body.message) || ('请求失败 HTTP ' + res.status)); error.status=res.status; throw error; }
   return body ? body.data : null;
 }
 
-function showLogin() { $('mainView').classList.add('hidden'); $('loginView').classList.remove('hidden'); loadCaptcha(); }
+function showLogin() { miniState.version++; miniState.requests.clear(); closeModal(); $('mainView').classList.add('hidden'); $('loginView').classList.remove('hidden'); loadCaptcha(); }
 function showMain() { $('loginView').classList.add('hidden'); $('mainView').classList.remove('hidden'); }
 
 function switchMenu(menu) {
   state.menu = menu;
+  miniState.version++;
+  $('miniSection').classList.toggle('hidden', !miniPanels[menu]);
+  if (miniPanels[menu]) showMini(menu);
   document.querySelectorAll('.menu-item').forEach(el => el.classList.toggle('active', el.dataset.menu === menu));
   $('usersSection').classList.toggle('hidden', menu !== 'users');
   $('statsSection').classList.toggle('hidden', menu !== 'stats');
@@ -338,7 +353,8 @@ async function loadUsers(page) {
         <td>${esc(u.lastLoginAt) || '-'}</td>
         <td>${esc(u.createdAt) || '-'}</td>
         <td class="actions">
-          <button class="btn ghost small" onclick='openEdit(${JSON.stringify(u)})'>编辑</button>
+          <button class="btn ghost small" onclick='openEdit(${esc(JSON.stringify(u))})'>编辑</button>
+          <button class="btn ghost small" onclick="accountDiagnosis(${u.id})">微信／学生</button>
           <button class="btn ghost small" onclick="openReset(${u.id}, '${esc(u.phone)}')">重置密码</button>
           ${u.cancelled ? '' : `<button class="btn ghost small" onclick="doCancelMembership(${u.id}, '${esc(u.phone)}')">注销会员</button>`}
           <button class="btn danger small" onclick="doDelete(${u.id}, '${esc(u.phone)}')">删除</button>
@@ -534,7 +550,7 @@ async function loadAgents() {
         <td><span class="tag ${a.enabled ? 'on' : 'off'}">${a.enabled ? '启用' : '停用'}</span></td>
         <td style="white-space:nowrap">${esc(a.updatedAt)}</td>
         <td class="actions">
-          <button class="btn ghost small" onclick='openAgentEdit(${JSON.stringify(a)})'>编辑提示词</button>
+          <button class="btn ghost small" onclick='openAgentEdit(${esc(JSON.stringify(a))})'>编辑提示词</button>
           <button class="btn ghost small" onclick="purgeAgentCache('${esc(a.key)}', '${esc(a.name)}')">清空缓存</button>
           <button class="btn ghost small" onclick="resetAgent('${esc(a.key)}')">恢复默认</button>
         </td>
@@ -580,9 +596,920 @@ async function resetAgent(key) {
   catch (e) { toast(e.message); }
 }
 
+// 小程序管理入口复用统一鉴权；列表按服务端游标分页，迟到响应不得覆盖新菜单。
+const miniRoot = "/api/admin/mini/v1";
+const miniPanels = {
+  accounts: {
+    name: "小程序账号与权益",
+    path: "accounts",
+    columns: {
+      id: "账号ID",
+      phone: "手机号",
+      memberName: "会员名",
+      memberNo: "会员号",
+      memberExpireAt: "到期日",
+      role: "角色",
+      enabled: "启用",
+      aiEnabled: "AI授权",
+    },
+    filters: ["phone", "memberActive", "enabled"],
+  },
+  categories: {
+    name: "模板分类",
+    path: "template-categories",
+    columns: { code: "代码", name: "名称", sortOrder: "排序", enabled: "启用" },
+    filters: [],
+  },
+  templates: {
+    name: "PDF模板",
+    path: "templates",
+    columns: {
+      name: "名称",
+      code: "代码",
+      status: "状态",
+      slotsPerPage: "题／页",
+      currentVersionId: "当前版本",
+    },
+    filters: ["categoryId", "status"],
+  },
+  jobs: {
+    name: "图片处理任务",
+    path: "processing-jobs",
+    columns: {
+      id: "任务ID",
+      userId: "账号",
+      studentId: "学生",
+      operation: "类型",
+      status: "状态",
+      createdAt: "提交时间",
+    },
+    filters: ["userId", "studentId", "status"],
+  },
+  pdfs: {
+    name: "PDF导出任务",
+    path: "print-tasks",
+    columns: {
+      id: "任务ID",
+      userId: "账号",
+      studentId: "学生",
+      templateName: "模板",
+      itemCount: "题数",
+      pageCount: "页数",
+      status: "状态",
+    },
+    filters: ["userId", "studentId", "status"],
+  },
+  assets: {
+    name: "对象存储资产",
+    path: "assets",
+    columns: {
+      id: "资产ID",
+      userId: "账号",
+      purpose: "用途",
+      status: "状态",
+      mimeType: "类型",
+      sizeBytes: "大小",
+      storageProvider: "存储",
+    },
+    filters: ["userId", "studentId", "status", "purpose"],
+  },
+  feedbacks: {
+    name: "用户反馈",
+    path: "feedbacks",
+    columns: {
+      id: "反馈ID",
+      userId: "账号",
+      content: "内容",
+      status: "状态",
+      createdAt: "提交时间",
+    },
+    filters: ["userId", "status"],
+  },
+  calls: {
+    name: "AI调用明细",
+    path: "ai-calls",
+    columns: {
+      id: "ID",
+      userId: "账号",
+      studentId: "学生",
+      provider: "供应商",
+      apiAction: "接口",
+      success: "成功",
+      requestId: "RequestId",
+      durationMs: "耗时ms",
+      createdAt: "时间",
+    },
+    filters: [
+      "userId",
+      "studentId",
+      "provider",
+      "aiType",
+      "success",
+      "traceId",
+      "startDate",
+      "endDate",
+    ],
+  },
+  queue: {
+    name: "消息队列",
+    path: "outbox-events",
+    columns: {
+      id: "消息ID",
+      aggregateType: "业务类型",
+      aggregateId: "业务ID",
+      eventType: "事件",
+      status: "状态",
+      attemptCount: "尝试次数",
+      nextAttemptAt: "下次尝试",
+    },
+    filters: ["status", "aggregateType"],
+  },
+  integrity: {
+    name: "数据诊断",
+    path: "integrity-checks",
+    columns: {},
+    filters: ["userId", "studentId"],
+  },
+};
+const miniState = {
+  key: "",
+  items: [],
+  cursor: null,
+  pageCursor: null,
+  history: [],
+  version: 0,
+  busy: false,
+  categories: [],
+  requests: new Map(),
+};
+const miniLabels = {
+  userId: "账号ID",
+  studentId: "学生ID",
+  status: "状态",
+  purpose: "用途",
+  provider: "供应商",
+  aiType: "AI类型",
+  success: "是否成功",
+  traceId: "追踪ID",
+  aggregateType: "业务类型",
+  categoryId: "分类ID",
+  enabled: "是否启用",
+  phone: "手机号",
+  memberActive: "有效会员",
+  startDate: "开始日期",
+  endDate: "结束日期",
+};
+function miniButton(label, handler) {
+  const b = document.createElement("button");
+  b.className = "btn ghost small";
+  b.textContent = label;
+  b.onclick = handler;
+  return b;
+}
+function miniValue(v) {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "boolean") return v ? "是" : "否";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+function miniSelect(id, values, current) {
+  return `<select id="${id}">${values.map(([value, label]) => `<option value="${esc(value)}" ${String(value) === String(current) ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>`;
+}
+function miniField(id, label, value = "", type = "text") {
+  return `<div class="form-row"><label>${esc(label)}</label><input id="${id}" type="${type}" value="${esc(value)}"></div>`;
+}
+function miniError(e) {
+  $("modalError").textContent = e.message;
+}
+async function miniSave(action) {
+  if (miniState.busy) return;
+  miniState.busy = true;
+  $("modalOk").disabled = true;
+  try {
+    await action();
+    closeModal();
+    toast("保存成功");
+    if (miniState.key) await loadMini(false);
+  } catch (e) {
+    miniError(e);
+  } finally {
+    miniState.busy = false;
+    $("modalOk").disabled = false;
+  }
+}
+function miniFilterField(key, field) {
+  const states = {
+    templates: ["DRAFT", "PUBLISHED", "DISABLED"],
+    jobs: [
+      "QUEUED",
+      "RUNNING",
+      "SUCCEEDED",
+      "PARTIAL_SUCCESS",
+      "FAILED",
+      "CANCELLED",
+    ],
+    pdfs: [
+      "QUEUED",
+      "RENDERING",
+      "READY",
+      "FAILED",
+      "CANCELLED",
+      "PRINT_CONFIRMED",
+    ],
+    assets: ["PENDING_UPLOAD", "AVAILABLE", "DELETE_PENDING", "DELETED"],
+    feedbacks: ["NEW", "REVIEWING", "RESOLVED", "CLOSED"],
+    queue: ["PENDING", "PROCESSING", "SENT", "FAILED"],
+  };
+  let values = null;
+  if (field === "status" && states[key]) values = states[key];
+  if (["enabled", "memberActive", "success"].includes(field))
+    values = ["true", "false"];
+  if (values)
+    return `<div class="form-row"><label>${miniLabels[field]}</label>${miniSelect("miniFilter-" + field, [["", "全部"], ...values.map((v) => [v, v === "true" ? "是" : v === "false" ? "否" : v])], "")}</div>`;
+  return miniField(
+    "miniFilter-" + field,
+    miniLabels[field],
+    "",
+    field.endsWith("Date") ? "date" : "text",
+  );
+}
+function showMini(key) {
+  miniState.key = key;
+  miniState.history = [];
+  miniState.cursor = null;
+  const panel = miniPanels[key];
+  $("miniHeading").textContent = panel.name;
+  $("miniFilters").innerHTML = panel.filters
+    .map((f) => miniFilterField(key, f))
+    .join("");
+  $("miniCreate").replaceChildren();
+  if (key === "accounts")
+    $("miniCreate").append(miniButton("增加账号", () => editMiniAccount()));
+  if (key === "categories")
+    $("miniCreate").append(miniButton("增加分类", () => editCategory()));
+  if (key === "templates")
+    $("miniCreate").append(miniButton("增加模板", () => editTemplate()));
+  loadMini(false);
+}
+async function loadMini(append = false, previous = false) {
+  const key = miniState.key,
+    panel = miniPanels[key],
+    version = ++miniState.version;
+  const params = new URLSearchParams({ limit: "20" });
+  for (const f of panel.filters) {
+    const v = $("miniFilter-" + f).value.trim();
+    if (v) params.set(f, v);
+  }
+  let pageCursor = null;
+  if (previous) {
+    pageCursor = miniState.history.pop() || null;
+  } else if (append && miniState.cursor) {
+    miniState.history.push(miniState.pageCursor);
+    pageCursor = miniState.cursor;
+  } else miniState.history = [];
+  if (pageCursor) params.set("cursor", pageCursor);
+  $("miniError").textContent = "";
+  $("miniRows").textContent = "加载中…";
+  $("miniNext").disabled = true;
+  try {
+    const data = await api(miniRoot + "/" + panel.path + "?" + params);
+    if (version !== miniState.version || state.menu !== key) return;
+    if (key === "integrity") {
+      const labels = {
+        missingStudentCount: "缺少学生归属",
+        crossStudentReferenceCount: "跨学生引用",
+        orphanAssetCount: "孤立资产",
+        legacyIndexWarnings: "旧索引警告",
+      };
+      $("miniRows").replaceChildren();
+      for (const [k, v] of Object.entries(data)) {
+        const p = document.createElement("p");
+        p.textContent = (labels[k] || k) + "：" + miniValue(v);
+        $("miniRows").append(p);
+      }
+      miniState.cursor = null;
+    } else {
+      miniState.pageCursor = pageCursor;
+      miniState.items = data.items || [];
+      miniState.cursor = data.nextCursor;
+      renderMini(panel);
+      $("miniNext").disabled = !data.hasMore;
+      $("miniPrevious").disabled = !miniState.history.length;
+    }
+  } catch (e) {
+    if (version === miniState.version) {
+      $("miniRows").textContent = "";
+      $("miniError").textContent = e.message;
+    }
+  }
+}
+function renderMini(panel) {
+  const table = document.createElement("table"),
+    head = document.createElement("thead"),
+    tr = document.createElement("tr");
+  for (const title of [...Object.values(panel.columns), "操作"]) {
+    const th = document.createElement("th");
+    th.textContent = title;
+    tr.append(th);
+  }
+  head.append(tr);
+  table.append(head);
+  const body = document.createElement("tbody");
+  miniState.items.forEach((row) => {
+    const tr = document.createElement("tr");
+    for (const field of Object.keys(panel.columns)) {
+      const td = document.createElement("td");
+      td.textContent = miniValue(
+        field === "status" &&
+          miniState.key === "pdfs" &&
+          ["READY", "PRINT_CONFIRMED"].includes(row[field])
+          ? "PDF已生成"
+          : row[field],
+      );
+      tr.append(td);
+    }
+    const td = document.createElement("td");
+    td.className = "actions";
+    const key = miniState.key;
+    td.append(miniButton("详情", () => miniDetails(row)));
+    if (key === "accounts")
+      td.append(
+        miniButton("编辑权益", () => editMiniAccount(row)),
+        miniButton("微信／学生", () => accountDiagnosis(row.id)),
+        miniButton("重置密码", () => resetMiniPassword(row)),
+        miniButton("撤销会员", () => removeMiniMembership(row)),
+      );
+    if (key === "categories")
+      td.append(miniButton("编辑", () => editCategory(row)));
+    if (key === "templates") {
+      td.append(
+        miniButton("编辑", () => editTemplate(row)),
+        miniButton("版本", () => templateVersions(row)),
+      );
+    }
+    if (key === "feedbacks")
+      td.append(miniButton("处理", () => editFeedback(row)));
+    if (
+      (key === "jobs" && ["FAILED", "PARTIAL_SUCCESS"].includes(row.status)) ||
+      (["pdfs", "queue"].includes(key) && row.status === "FAILED")
+    )
+      td.append(miniButton("重试", () => miniReason(row, "retry")));
+    if (
+      key === "assets" &&
+      ["AVAILABLE", "PENDING_UPLOAD", "DELETE_PENDING"].includes(row.status)
+    )
+      td.append(miniButton("申请清理", () => miniReason(row, "cleanup")));
+    tr.append(td);
+    body.append(tr);
+  });
+  table.append(body);
+  const wrapper = document.createElement("div");
+  wrapper.style.overflowX = "auto";
+  wrapper.append(table);
+  $("miniRows").replaceChildren(wrapper);
+  if (!miniState.items.length) {
+    const p = document.createElement("p");
+    p.textContent = "暂无数据";
+    $("miniRows").append(p);
+  }
+}
+async function miniDetails(row) {
+  const key = miniState.key;
+  try {
+    const detail = ["jobs", "pdfs"].includes(key)
+      ? await api(
+          miniRoot +
+            "/" +
+            miniPanels[key].path +
+            "/" +
+            encodeURIComponent(row.id),
+        )
+      : row;
+    openModal(
+      miniPanels[key].name + "详情",
+      '<pre id="miniDetail" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>',
+      closeModal,
+    );
+    $("miniDetail").textContent = JSON.stringify(detail, null, 2);
+  } catch (e) {
+    toast(e.message);
+  }
+}
+function editCategory(row) {
+  openModal(
+    row ? "编辑分类" : "增加分类",
+    (!row ? miniField("catCode", "代码（大写字母、数字、下划线）") : "") +
+      miniField("catName", "分类名称", row?.name) +
+      miniField("catSort", "排序", row?.sortOrder || 0, "number") +
+      miniSelect(
+        "catEnabled",
+        [
+          ["true", "启用"],
+          ["false", "停用"],
+        ],
+        row?.enabled ?? true,
+      ),
+    () =>
+      miniSave(async () => {
+        const data = {
+          name: $("catName").value.trim(),
+          sortOrder: Number($("catSort").value),
+          enabled: $("catEnabled").value === "true",
+        };
+        if (!row) data.code = $("catCode").value.trim();
+        await api(
+          miniRoot +
+            "/template-categories" +
+            (row ? "/" + encodeURIComponent(row.id) : ""),
+          { method: row ? "PATCH" : "POST", body: JSON.stringify(data) },
+        );
+      }),
+  );
+}
+async function editTemplate(row) {
+  try {
+    const categories = await api(miniRoot + "/template-categories");
+    miniState.categories = categories.items;
+    openModal(
+      row ? "编辑模板" : "增加模板",
+      (!row
+        ? miniField("tplCode", "代码") +
+          miniSelect(
+            "tplCategory",
+            categories.items.map((c) => [c.id, c.name]),
+            "",
+          )
+        : "") +
+        miniField("tplName", "模板名称", row?.name) +
+        miniField("tplSort", "排序", row?.sortOrder || 0, "number") +
+        (row
+          ? miniSelect(
+              "tplStatus",
+              [
+                ["DRAFT", "草稿（保留）"],
+                ["PUBLISHED", "启用"],
+                ["DISABLED", "停用"],
+              ],
+              row.status,
+            )
+          : ""),
+      () =>
+        miniSave(async () => {
+          const data = {
+            name: $("tplName").value.trim(),
+            sortOrder: Number($("tplSort").value),
+          };
+          if (row) {
+            if ($("tplStatus").value !== "DRAFT")
+              data.status = $("tplStatus").value;
+          } else {
+            data.code = $("tplCode").value.trim();
+            data.categoryId = $("tplCategory").value;
+          }
+          await api(
+            miniRoot +
+              "/templates" +
+              (row ? "/" + encodeURIComponent(row.id) : ""),
+            { method: row ? "PATCH" : "POST", body: JSON.stringify(data) },
+          );
+        }),
+    );
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function templateVersions(template) {
+  try {
+    const data = await api(
+      miniRoot + "/templates/" + encodeURIComponent(template.id) + "/versions",
+    );
+    openModal(
+      "模板版本 · " + template.name,
+      '<div id="versionRows"></div>',
+      closeModal,
+    );
+    $("versionRows").append(
+      miniButton("新建版本", () => editVersion(template)),
+    );
+    for (const version of data.items) {
+      const p = document.createElement("div");
+      p.style.margin = "12px 0";
+      const title = document.createElement("span");
+      title.textContent =
+        "v" +
+        version.versionNo +
+        " · " +
+        version.status +
+        " · " +
+        version.slotsPerPage +
+        "题/页 ";
+      p.append(
+        title,
+        miniButton("查看／复制为新版本", () =>
+          editVersion(template, version, true),
+        ),
+      );
+      if (version.status === "DRAFT") {
+        p.append(
+          miniButton("编辑草稿", () => editVersion(template, version, false)),
+          miniButton("发布", () => publishVersion(template, version)),
+        );
+      }
+      $("versionRows").append(p);
+    }
+  } catch (e) {
+    toast(e.message);
+  }
+}
+// 声明式布局仅包含数字题框；本地示意图用固定 SVG 标签生成，不执行模板代码。
+function defaultLayout(w = 210, h = 297, n = 2) {
+  const gap = 8,
+    margin = 12,
+    height = (h - margin * 2 - gap * (n - 1)) / n;
+  return {
+    schemaVersion: 1,
+    unit: "mm",
+    imageFit: "CONTAIN",
+    showAnswer: false,
+    paper: {
+      width: w,
+      height: h,
+      orientation: w > h ? "LANDSCAPE" : "PORTRAIT",
+    },
+    slots: Array.from({ length: n }, (_, i) => ({
+      x: margin,
+      y: margin + i * (height + gap),
+      width: w - 2 * margin,
+      height,
+    })),
+  };
+}
+function previewSvg(layout) {
+  const { width: w, height: h } = layout.paper;
+  if (
+    !Number.isFinite(w) ||
+    !Number.isFinite(h) ||
+    w <= 0 ||
+    h <= 0 ||
+    !Array.isArray(layout.slots) ||
+    !layout.slots.length ||
+    layout.slots.length > 16
+  )
+    throw new Error("纸张和题框参数无效");
+  const slots = layout.slots
+    .map((s) => {
+      for (const k of ["x", "y", "width", "height"])
+        if (!Number.isFinite(s[k])) throw new Error("题框坐标必须是数字");
+      if (
+        s.x < 0 ||
+        s.y < 0 ||
+        s.width <= 0 ||
+        s.height <= 0 ||
+        s.x + s.width > w ||
+        s.y + s.height > h
+      )
+        throw new Error("题框不能超出纸张");
+      return `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" fill="none" stroke="#718198" stroke-width="0.5"/>`;
+    })
+    .join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect x="0" y="0" width="${w}" height="${h}" fill="#fff"/>${slots}</svg>`;
+}
+function editVersion(template, version, copy = true) {
+  const layout = version?.layout || defaultLayout();
+  openModal(
+    (version && !copy ? "编辑草稿" : "新建版本") + " · " + template.name,
+    miniField("verWidth", "纸宽 mm", version?.paperWidthMm || 210, "number") +
+      miniField(
+        "verHeight",
+        "纸高 mm",
+        version?.paperHeightMm || 297,
+        "number",
+      ) +
+      miniField(
+        "verSlots",
+        "题数／页（1～16）",
+        version?.slotsPerPage || 2,
+        "number",
+      ) +
+      miniSelect(
+        "verOrientation",
+        [
+          ["PORTRAIT", "纵向"],
+          ["LANDSCAPE", "横向"],
+        ],
+        version?.orientation || "PORTRAIT",
+      ) +
+      '<p>声明式布局 JSON（毫米）：</p><textarea id="verLayout" rows="10" style="width:100%"></textarea><p>受控代码说明（可选，不执行脚本）：</p><textarea id="verCode" rows="3" style="width:100%"></textarea><div id="verPreview" style="text-align:center"></div><div id="verTools"></div>',
+    () =>
+      miniSave(async () => {
+        const l = JSON.parse($("verLayout").value);
+        if (
+          l.paper.width !== Number($("verWidth").value) ||
+          l.paper.height !== Number($("verHeight").value) ||
+          l.paper.orientation !== $("verOrientation").value ||
+          l.slots.length !== Number($("verSlots").value)
+        )
+          throw new Error("纸张参数／题数与布局不一致，请重新生成题框");
+        const svg = previewSvg(l);
+        const asset = await api(miniRoot + "/assets", {
+          method: "POST",
+          body: JSON.stringify({
+            purpose: "TEMPLATE_PREVIEW",
+            mimeType: "image/svg+xml",
+            svg,
+          }),
+        });
+        const data = {
+          paperWidthMm: $("verWidth").value,
+          paperHeightMm: $("verHeight").value,
+          orientation: $("verOrientation").value,
+          slotsPerPage: Number($("verSlots").value),
+          rendererType: "DECLARATIVE",
+          rendererVersion: "1",
+          layout: l,
+          codeContent: $("verCode").value || null,
+          previewSvgAssetId: asset.id,
+        };
+        await api(
+          miniRoot +
+            "/templates/" +
+            encodeURIComponent(template.id) +
+            "/versions" +
+            (version && !copy ? "/" + encodeURIComponent(version.id) : ""),
+          {
+            method: version && !copy ? "PUT" : "POST",
+            body: JSON.stringify(data),
+          },
+        );
+      }),
+  );
+  $("verLayout").value = JSON.stringify(layout, null, 2);
+  $("verCode").value = version?.codeContent || "";
+  $("verTools").append(
+    miniButton("生成均分题框", () => {
+      try {
+        const w = Number($("verWidth").value),
+          h = Number($("verHeight").value),
+          n = Number($("verSlots").value);
+        if (!Number.isInteger(n) || n < 1 || n > 16)
+          throw new Error("题数须为1～16");
+        $("verLayout").value = JSON.stringify(defaultLayout(w, h, n), null, 2);
+        $("verOrientation").value = w > h ? "LANDSCAPE" : "PORTRAIT";
+        drawVersion();
+      } catch (e) {
+        miniError(e);
+      }
+    }),
+    miniButton("预览 SVG", drawVersion),
+  );
+  drawVersion();
+}
+function drawVersion() {
+  try {
+    const svg = previewSvg(JSON.parse($("verLayout").value));
+    const img = document.createElement("img");
+    img.style.height = "260px";
+    img.style.maxWidth = "100%";
+    img.alt = "模板示意图";
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    $("verPreview").replaceChildren(img);
+    $("modalError").textContent = "";
+  } catch (e) {
+    miniError(e);
+  }
+}
+function publishVersion(template, version) {
+  openModal(
+    "发布模板版本",
+    "<p>发布后此版本不可修改，后续变更需新建版本。历史 PDF 任务继续引用原版本。</p>",
+    () =>
+      miniSave(() =>
+        api(
+          miniRoot +
+            "/templates/" +
+            encodeURIComponent(template.id) +
+            "/versions/" +
+            encodeURIComponent(version.id) +
+            "/publish",
+          { method: "POST", body: "{}" },
+        ),
+      ),
+  );
+}
+function editFeedback(row) {
+  openModal(
+    "处理用户反馈",
+    `<p>${esc(row.content)}</p>` +
+      miniSelect(
+        "feedbackStatus",
+        [
+          ["NEW", "新反馈"],
+          ["REVIEWING", "处理中"],
+          ["RESOLVED", "已解决"],
+          ["CLOSED", "已关闭"],
+        ],
+        row.status,
+      ) +
+      '<p>内部备注：</p><textarea id="feedbackNote" rows="5" maxlength="2000" style="width:100%"></textarea>',
+    () =>
+      miniSave(() =>
+        api(miniRoot + "/feedbacks/" + encodeURIComponent(row.id), {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: $("feedbackStatus").value,
+            adminNote: $("feedbackNote").value,
+          }),
+        }),
+      ),
+  );
+  $("feedbackNote").value = row.adminNote || "";
+}
+async function miniReason(row, operation) {
+  const key = miniState.key;
+  let failed = [];
+  if (key === "jobs") {
+    try {
+      const job = await api(
+        miniRoot + "/processing-jobs/" + encodeURIComponent(row.id),
+      );
+      failed = (job.items || []).filter((i) => i.status === "FAILED");
+      if (!failed.length) throw new Error("没有可重试的失败项，请刷新");
+    } catch (e) {
+      toast(e.message);
+      return;
+    }
+  }
+  const path = miniPanels[key].path,
+    fingerprint = key + ":" + row.id + ":" + operation;
+  openModal(
+    operation === "cleanup" ? "申请资产清理" : "重试失败任务",
+    '<p>操作原因（必填）：</p><textarea id="operationReason" rows="4" maxlength="500" style="width:100%"></textarea>' +
+      (key === "assets"
+        ? "<p>后台会检查引用与上传会话；有业务引用的资产不能清理。</p>"
+        : "<p>按原输入／快照重试，不修改用户照片和题目。</p>"),
+    () =>
+      miniSave(async () => {
+        const reason = $("operationReason").value.trim();
+        if (!reason) throw new Error("请填写操作原因");
+        let data = miniState.requests.get(fingerprint);
+        if (data && data.reason !== reason)
+          throw new Error("上次结果未确认，请保持原原因重试");
+        if (!data) {
+          data = { reason, clientRequestId: crypto.randomUUID() };
+          if (key === "jobs") data.itemIds = failed.map((i) => i.id);
+          miniState.requests.set(fingerprint, data);
+        }
+        try {
+          await api(
+            miniRoot +
+              "/" +
+              path +
+              "/" +
+              encodeURIComponent(row.id) +
+              "/" +
+              operation,
+            { method: "POST", body: JSON.stringify(data) },
+          );
+          miniState.requests.delete(fingerprint);
+        } catch (e) {
+          if (e.status >= 400 && e.status < 500)
+            miniState.requests.delete(fingerprint);
+          throw e;
+        }
+      }),
+  );
+  const pending = miniState.requests.get(fingerprint);
+  if (pending) $("operationReason").value = pending.reason;
+}
+async function accountDiagnosis(id) {
+  try {
+    const results = await Promise.all([
+      api(miniRoot + "/accounts/" + encodeURIComponent(id)),
+      api(miniRoot + "/accounts/" + encodeURIComponent(id) + "/identities"),
+      api(
+        miniRoot +
+          "/accounts/" +
+          encodeURIComponent(id) +
+          "/students?status=ACTIVE&limit=100",
+      ),
+    ]);
+    openModal(
+      "账号、微信绑定与学生信息",
+      '<pre id="accountDiagnosis" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>',
+      closeModal,
+    );
+    $("accountDiagnosis").textContent = JSON.stringify(
+      {
+        account: results[0],
+        identities: results[1].items,
+        students: results[2].items,
+      },
+      null,
+      2,
+    );
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+function editMiniAccount(row) {
+  openModal(
+    row ? "编辑账号权益" : "增加账号",
+    (!row
+      ? miniField("accPhone", "手机号") +
+        miniField("accPassword", "初始密码", "", "password")
+      : "") +
+      miniField("accName", "会员名", row?.memberName) +
+      miniField("accNo", "会员号", row?.memberNo) +
+      miniField("accExpire", "会员到期日", row?.memberExpireAt || "", "date") +
+      miniSelect(
+        "accRole",
+        [
+          ["USER", "普通用户"],
+          ["ADMIN", "系统管理员"],
+        ],
+        row?.role || "USER",
+      ) +
+      miniSelect(
+        "accEnabled",
+        [
+          ["true", "正常"],
+          ["false", "停用"],
+        ],
+        row?.enabled ?? true,
+      ) +
+      miniSelect(
+        "accAi",
+        [
+          ["true", "开通 AI"],
+          ["false", "关闭 AI"],
+        ],
+        row?.aiEnabled ?? false,
+      ),
+    () =>
+      miniSave(async () => {
+        const data = {
+          memberName: $("accName").value.trim() || null,
+          memberNo: $("accNo").value.trim() || null,
+          memberExpireAt: $("accExpire").value || null,
+          role: $("accRole").value,
+          enabled: $("accEnabled").value === "true",
+          aiEnabled: $("accAi").value === "true",
+        };
+        if (!row) {
+          data.phone = $("accPhone").value.trim();
+          data.password = $("accPassword").value;
+        }
+        await api(
+          miniRoot +
+            "/accounts" +
+            (row ? "/" + encodeURIComponent(row.id) : ""),
+          { method: row ? "PATCH" : "POST", body: JSON.stringify(data) },
+        );
+      }),
+  );
+}
+function resetMiniPassword(row) {
+  openModal(
+    "重置密码 · " + row.phone,
+    miniField("accNewPassword", "新密码", "", "password") +
+      "<p>重置后撤销账号已有会话。</p>",
+    () =>
+      miniSave(() =>
+        api(
+          miniRoot + "/accounts/" + encodeURIComponent(row.id) + "/password",
+          {
+            method: "PUT",
+            body: JSON.stringify({ password: $("accNewPassword").value }),
+          },
+        ),
+      ),
+  );
+}
+function removeMiniMembership(row) {
+  openModal(
+    "撤销会员权益",
+    "<p>清除会员号、到期日及 AI 授权，保留普通账号、学生和错题数据。</p>",
+    () =>
+      miniSave(() =>
+        api(
+          miniRoot + "/accounts/" + encodeURIComponent(row.id) + "/membership",
+          { method: "DELETE" },
+        ),
+      ),
+  );
+}
+
 (async function init() {
-  if (!state.token) { showLogin(); return; }
-  try { await enterMain(); } catch { showLogin(); }
+  if (!state.token) {
+    showLogin();
+    return;
+  }
+  try {
+    await enterMain();
+  } catch {
+    showLogin();
+  }
 })();
 </script>
 </body>

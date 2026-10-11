@@ -755,6 +755,9 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
             List.of(map("sourceType", "ENTRY", "sourceId", entry)));
     JsonNode task = ok(base() + "/print-tasks", HttpMethod.POST, body, token);
     String taskId = task.path("id").asText();
+    assertEquals(owner.getId().toString(),
+        ok("/api/admin/mini/v1/print-tasks/" + taskId, HttpMethod.GET, null, adminToken)
+            .path("userId").asText());
     assertEquals(
         taskId, ok(base() + "/print-tasks", HttpMethod.POST, body, token).path("id").asText());
     ok(base() + "/entries/" + entry, HttpMethod.PATCH, map("version", 0, "remark", "后来修改"), token);
@@ -955,6 +958,9 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
         HttpMethod.PATCH,
         map("status", "REVIEWING", "adminNote", "内部说明"),
         adminToken);
+    assertEquals(owner.getId().toString(),
+        ok("/api/admin/mini/v1/feedbacks?userId=" + owner.getId(), HttpMethod.GET, null, adminToken)
+            .path("items").get(0).path("userId").asText());
     assertFalse(
         ok("/api/mini/v1/feedbacks", HttpMethod.GET, null, token)
             .path("items")

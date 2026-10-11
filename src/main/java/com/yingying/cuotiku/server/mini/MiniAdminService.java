@@ -434,12 +434,25 @@ public class MiniAdminService {
         query,
         "createdAt",
         true,
-        processing::dto);
+        this::adminJobDto);
   }
 
   @Transactional(readOnly = true)
   public Object job(String id) {
-    return processing.dto(s.get(ProcessingJob.class, id));
+    return adminJobDto(s.get(ProcessingJob.class, id));
+  }
+
+  /** 管理排障显示归属账号；不扩大小程序用户DTO的公开字段。 */
+  private Map<String, Object> adminJobDto(ProcessingJob job) {
+    Map<String, Object> dto = (Map<String, Object>) processing.dto(job);
+    dto.put("userId", job.getUserId().toString());
+    return dto;
+  }
+
+  private Map<String, Object> adminPrintDto(PrintTask task) {
+    Map<String, Object> dto = prints.dto(task);
+    dto.put("userId", task.getUserId().toString());
+    return dto;
   }
 
   public Object retryJob(User operator, String id, JsonNode body) {
@@ -485,13 +498,15 @@ public class MiniAdminService {
         query,
         "createdAt",
         true,
-        prints::dto);
+        this::adminPrintDto);
   }
 
   @Transactional(readOnly = true)
   public Object print(String id) {
     PrintTask task = s.get(PrintTask.class, id);
-    return prints.detail(task);
+    Map<String, Object> dto = (Map<String, Object>) prints.detail(task);
+    dto.put("userId", task.getUserId().toString());
+    return dto;
   }
 
   public Object retryPrint(User operator, String id, JsonNode body) {
@@ -523,6 +538,8 @@ public class MiniAdminService {
         true,
         row -> {
           Map<String, Object> dto = assets.dto(row);
+          dto.put("userId", row.getUserId() == null ? null : row.getUserId().toString());
+          dto.put("studentId", row.getStudentId());
           dto.putAll(
               map(
                   "storageProvider",
@@ -601,6 +618,7 @@ public class MiniAdminService {
         row -> {
           Map<String, Object> dto = (Map<String, Object>) feedback.dto(row);
           dto.put("adminNote", row.getAdminNote());
+          dto.put("userId", row.getUserId().toString());
           return dto;
         });
   }

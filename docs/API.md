@@ -2,6 +2,10 @@
 
 ## 版本更新记录
 
+### v1.23.0（2026-10-11，管理端补全，待部署）
+
+内置管理网页接入既有 ADM 接口：小程序账号／权益、微信与学生诊断、模板分类与版本发布、图片处理与PDF导出任务排障、资产清理申请、反馈处理、AI调用明细、消息队列及数据诊断。模板草稿编辑提供声明式布局和SVG示意图上传；发布后只可复制新版本。用户业务统一为PDF导出，管理端不新增物理打印确认。API路径兼容；管理处理任务、PDF任务、资产和反馈的返回值补充userId归属字段，管理资产补充studentId，不改变小程序用户侧DTO。操作指南见 [ADMIN-CONSOLE.md](ADMIN-CONSOLE.md)。
+
 ### v1.22.2（2026-10-10，源码修复，待部署）
 
 修复旧库保留 `uk_user_norm_name`、`uk_user_system_key` 时，不同学生保存同名科目失败的问题。ORM 自动升级先建立 `uk_subject_scope_name`、`uk_subject_scope_system`，再移除两个已确认的旧账号范围索引；不修改科目记录。同一学生及未归属学生的历史账号范围仍禁止重复名称／预设键。Schema DDL 出错即阻断启动，避免约束升级失败后继续提供服务。真实 MySQL 旧表测试覆盖一次升级、重复启动、跨学生同名及同范围重名拒绝。接口契约不变。
@@ -252,7 +256,7 @@ AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`last
 | DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
 
 
-版本：v1.22.2 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.23.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 
