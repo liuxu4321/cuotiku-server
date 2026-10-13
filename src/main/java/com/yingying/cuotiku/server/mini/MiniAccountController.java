@@ -46,6 +46,13 @@ public class MiniAccountController {
     return ApiResponse.ok(service.bind(body.payload()));
   }
 
+  /** 用户主动解除当前微信身份与会员账号的绑定。 */
+  @PostMapping("/api/mini/v1/auth/member-unbind")
+  public ApiResponse<Object> unbind(
+      @AuthenticationPrincipal AuthenticatedUser principal, @Valid @RequestBody MiniBody body) {
+    return ApiResponse.ok(service.unbind(principal == null ? null : principal.user(), body.payload()));
+  }
+
   /** AUTH-05：登录已绑定微信账号。 */
   @PostMapping("/api/mini/v1/auth/login")
   public ApiResponse<Object> auth05(

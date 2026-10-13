@@ -370,7 +370,7 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
                 for (var method : mapping.getMethodsCondition().getMethods())
                   actual.add(method + " " + path);
             });
-    assertEquals(119, expected.size());
+    assertEquals(120, expected.size());
     assertTrue(
         actual.containsAll(expected),
         () -> "Missing " + expected.stream().filter(x -> !actual.contains(x)).toList());
@@ -1043,6 +1043,29 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
     assertEquals(
         student,
         ok("/api/mini/v1/students/" + student, HttpMethod.GET, null, token).path("id").asText());
+  }
+
+  @Test
+  void unbindChecksOwnershipRevokesSessionAndPreservesStudents() throws Exception {
+    UserIdentity binding = new UserIdentity();
+    binding.setProvider("WECHAT_MINIAPP"); binding.setAppId("wx-test");
+    binding.setOpenid("unbind-" + id()); binding.setUserId(owner.getId());
+    binding.setStatus("BOUND"); binding.setBoundAt(java.time.Instant.now());
+    new TransactionTemplate(transactions).execute(status -> { em.persist(binding); return null; });
+    String identity = jwt.issueMiniIdentity(binding.getId()).token();
+    Object body = map("identityToken", identity);
+    String endpoint = "/api/mini/v1/auth/member-unbind";
+    code(endpoint, HttpMethod.POST, body, null, 401);
+    code(endpoint, HttpMethod.POST, body, adminToken, 403);
+    assertTrue(ok(endpoint, HttpMethod.POST, body, token).path("unbound").asBoolean());
+    code("/api/mini/v1/me", HttpMethod.GET, null, token, 401);
+    code("/api/mini/v1/auth/login", HttpMethod.POST, body, null, 409);
+    new TransactionTemplate(transactions).execute(status -> {
+      assertNotNull(em.find(StudentProfile.class, student));
+      assertNotNull(em.find(User.class, owner.getId()));
+      assertNull(em.find(UserIdentity.class, binding.getId()).getUserId());
+      return null;
+    });
   }
 
   @Test

@@ -156,6 +156,23 @@ public class MiniAccountService {
     return tokens(user, body);
   }
 
+  /** 仅解除当前微信身份的绑定，保留账号权益、学生及所有学习资料。 */
+  public Object unbind(User caller, JsonNode body) {
+    if (caller == null) throw ApiException.unauthorized("请先登录");
+    UserIdentity row = identity(body);
+    if (!wechat.appId().equals(row.getAppId()) || !"WECHAT_MINIAPP".equals(row.getProvider()))
+      throw ApiException.forbidden("微信身份不属于当前小程序");
+    if (row.getUserId() != null && !caller.getId().equals(row.getUserId()))
+      throw ApiException.forbidden("不能解除其他账号的微信绑定");
+    User user = s.em.find(User.class, caller.getId(), LockModeType.PESSIMISTIC_WRITE);
+    row.setUserId(null);
+    row.setStatus("UNBOUND");
+    row.setBoundAt(null);
+    user.setSessionJti(null); user.setRefreshJti(null);
+    user.setPrevSessionJti(null); user.setPrevRefreshJti(null);
+    return map("unbound", true);
+  }
+
   public Object login(JsonNode body) {
     UserIdentity identity = identity(body);
     if (identity.getUserId() == null || !"BOUND".equals(identity.getStatus()))

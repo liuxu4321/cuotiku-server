@@ -2,6 +2,10 @@
 
 ## 版本更新记录
 
+### v1.23.2（2026-10-13，会员解绑，待部署）
+
+新增受保护接口POST /api/mini/v1/auth/member-unbind，验证当前微信身份及账号归属，解除关联并撤销会话；保留会员账号、权益、学生及学习资料。小程序我的页底部提供二次确认入口。
+
 ### v1.23.1（2026-10-11，模板整包导入，待部署）
 
 新增ADMIN接口 `POST /api/admin/mini/v1/templates/import`，支持模板数据包校验、分类ID自动解析、SVG存储、模板版本创建及发布。使用clientRequestId回执防止重复提交；同代码同布局重新导入复用版本。管理页提供文件选择、预览、导入结果及原请求重试；手工保存版本后返回版本列表。详见MINIAPP-API.md管理端导入补充。
@@ -260,7 +264,7 @@ AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`last
 | DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
 
 
-版本：v1.23.1 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.23.2 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 

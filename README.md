@@ -129,7 +129,7 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.23.1 -t jefferliu/yycuotiku-server:latest .
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.23.2 -t jefferliu/yycuotiku-server:latest .
 docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```
@@ -181,3 +181,7 @@ mvn package
 ### 1.23.1 模板整包导入
 
 PDF模板菜单支持选择JSON文件、显示四张版式预览、整包导入分类／模板／SVG／版本并发布。重复相同请求和同代码同布局文件复用版本；非法文件先校验，不产生半批模板。手工保存和发布后返回版本列表。
+
+### 1.23.2 解除会员绑定
+
+小程序用户可主动解除当前微信与会员账号的绑定。需当前账号登录态和新微信身份凭证；只解除对应身份并撤销会话，保留其他微信关联及账号、权益、学生和错题资料。客户端网络失败保留会话，不伪装解绑成功。
