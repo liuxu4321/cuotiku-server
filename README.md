@@ -129,7 +129,7 @@ GET  /api/admin/keepalives      (Bearer ADMIN) ?onlineOnly=&keyword=&page=&size=
 
 ```bash
 mvn -DskipTests package
-docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.23.2 -t jefferliu/yycuotiku-server:latest .
+docker build --platform linux/amd64 -t jefferliu/yycuotiku-server:1.24.0 -t jefferliu/yycuotiku-server:latest .
 docker push jefferliu/yycuotiku-server:1.21.0
 docker push jefferliu/yycuotiku-server:latest
 ```
@@ -185,3 +185,7 @@ PDF模板菜单支持选择JSON文件、显示四张版式预览、整包导入�
 ### 1.23.2 解除会员绑定
 
 小程序用户可主动解除当前微信与会员账号的绑定。需当前账号登录态和新微信身份凭证；只解除对应身份并撤销会话，保留其他微信关联及账号、权益、学生和错题资料。客户端网络失败保留会话，不伪装解绑成功。
+
+### 1.24.0 基础功能免会员绑定
+
+小程序启动直接进入首页，只有调用AI功能时提示绑定且可取消返回。微信验证的基础身份可采集、手动框题、保存及导出PDF，自动创建默认学生（年级／学期可修改）。绑定会员时保留基础身份的学生和学习资料，禁止正式账号之间合并。数据库通过JPA自动增加guest_account字段，既有账号默认false。客户端与服务端需同时更新。

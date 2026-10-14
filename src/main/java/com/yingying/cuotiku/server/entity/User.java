@@ -11,6 +11,13 @@ import java.time.LocalDate;
 })
 public class User {
 
+    /** 微信基础使用身份，不代表已绑定会员账号。 */
+    @Column(name = "guest_account", nullable = false, columnDefinition = "boolean default false")
+    private boolean guestAccount;
+
+    public boolean isGuestAccount() { return guestAccount; }
+    public void setGuestAccount(boolean value) { guestAccount = value; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

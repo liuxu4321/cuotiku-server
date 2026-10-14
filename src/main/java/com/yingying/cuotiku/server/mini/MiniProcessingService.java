@@ -41,7 +41,7 @@ public class MiniProcessingService {
   }
 
   public Object create(User user, String student, JsonNode body) {
-    if (!user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
+    if (user.isGuestAccount() || !user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
     s.activeStudent(user, student);
     return receipts.once(
         user,
@@ -132,7 +132,7 @@ public class MiniProcessingService {
           s.em.lock(job, LockModeType.PESSIMISTIC_WRITE);
           if (!List.of("FAILED", "PARTIAL_SUCCESS").contains(job.getStatus()))
             throw ApiException.conflict("仅失败处理项可重试");
-          if (!user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
+          if (user.isGuestAccount() || !user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
           Set<String> ids = new HashSet<>();
           for (JsonNode value : array(body, "itemIds", 30)) {
             String itemId = value.asText();
@@ -157,7 +157,7 @@ public class MiniProcessingService {
     s.em.lock(job, LockModeType.PESSIMISTIC_WRITE);
     if (!List.of("FAILED", "PARTIAL_SUCCESS").contains(job.getStatus()))
       throw ApiException.conflict("仅失败处理项可重试");
-    if (!user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
+    if (user.isGuestAccount() || !user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
     for (ProcessingJobItem item : items(job)) {
       if ("FAILED".equals(item.getStatus())) {
         item.setStatus("QUEUED");

@@ -22,7 +22,7 @@ public class MiniAgentService {
   }
 
   public Object run(User user, String student, String entryId, String type, JsonNode body) {
-    if (!user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
+    if (user.isGuestAccount() || !user.isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
     boolean force = bool(body, "forceRefresh", false);
     MiniAgentStore.Input input = store.input(user, student, entryId, type);
     MiniAgentContext.set(

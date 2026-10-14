@@ -77,7 +77,7 @@ public class MiniOcrGateway {
   public Result process(MiniProcessingService.ItemInput input, byte[] original) {
     if (!input.user().isEnabled() || input.user().isCancelled())
       throw ApiException.forbidden("账号不可用");
-    if (!input.user().isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
+    if (input.user().isGuestAccount() || !input.user().isAiEnabled()) throw ApiException.forbidden("账号未开通AI权限");
     if (!client.configured()) throw new ApiException(503, "后台尚未配置腾讯云AI");
     byte[] work = ImageUtil.autoOrient(original);
     List<Object> steps = new ArrayList<>();

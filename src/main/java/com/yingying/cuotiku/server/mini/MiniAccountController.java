@@ -36,6 +36,12 @@ public class MiniAccountController {
     return ApiResponse.ok(service.exchange(body.payload()));
   }
 
+  /** 基础功能免会员绑定；微信验证后的临时身份，始终无AI权限。 */
+  @PostMapping("/api/mini/v1/auth/guest")
+  public ApiResponse<Object> guest(@Valid @RequestBody MiniBody body) {
+    return ApiResponse.ok(service.guest(body.payload()));
+  }
+
   /** AUTH-04：微信身份绑定会员账号并登录。 */
   @PostMapping("/api/mini/v1/auth/member-bind")
   public ApiResponse<Object> auth04(

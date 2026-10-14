@@ -19,7 +19,7 @@ public class UserIdentity {
     @Column(name = "id", nullable = false, length = 36)
     private String id;
 
-    /** 关联 sys_user.id；一条身份最多绑定一个会员账号 */
+    /** 关联 sys_user.id；一条身份关联一个基础身份或会员账号 */
     @Column(name = "user_id")
     private Long userId;
 
@@ -39,7 +39,7 @@ public class UserIdentity {
     @Column(name = "unionid", length = 128)
     private String unionid;
 
-    /** UNBOUND / BOUND / DISABLED */
+    /** UNBOUND / GUEST / BOUND / DISABLED */
     @Column(name = "status", nullable = false, length = 16)
     private String status = "UNBOUND";
 

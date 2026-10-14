@@ -370,7 +370,7 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
                 for (var method : mapping.getMethodsCondition().getMethods())
                   actual.add(method + " " + path);
             });
-    assertEquals(120, expected.size());
+    assertEquals(121, expected.size());
     assertTrue(
         actual.containsAll(expected),
         () -> "Missing " + expected.stream().filter(x -> !actual.contains(x)).toList());
@@ -1043,6 +1043,43 @@ class MiniApiIntegrationTest extends AbstractIntegrationTest {
     assertEquals(
         student,
         ok("/api/mini/v1/students/" + student, HttpMethod.GET, null, token).path("id").asText());
+  }
+
+  @Test
+  void guestCanCaptureFrameSaveExportAndBindWithoutLosingLearningData() throws Exception {
+    User member = owner;
+    String memberPhone = member.getPhone();
+    when(wechat.exchange("guest-code")).thenReturn(new WechatIdentityClient.Identity("guest-" + id(), null));
+    String identity = ok("/api/mini/v1/auth/wechat", HttpMethod.POST, map("code", "guest-code"), null).path("identityToken").asText();
+    JsonNode session = ok("/api/mini/v1/auth/guest", HttpMethod.POST, map("identityToken", identity), null);
+    assertTrue(session.path("account").path("guest").asBoolean());
+    assertFalse(session.path("account").path("aiEnabled").asBoolean());
+    token = session.path("token").asText();
+    owner = users.findById(Long.parseLong(session.path("account").path("id").asText())).orElseThrow();
+    student = session.path("account").path("lastStudentId").asText();
+    subject = ok(base() + "/subjects", HttpMethod.POST, map("name", "数学"), token).path("id").asText();
+    topic = ok(base() + "/subjects/" + subject + "/topics", HttpMethod.POST, map("name", "手动录入"), token).path("id").asText();
+    error = ok(base() + "/error-types", HttpMethod.POST, map("name", "计算错误", "drawGroupCode", "CARELESS"), token).path("id").asText();
+    JsonNode photo = photo();
+    ok(base() + "/photos/" + photo.path("id").asText() + "/regions", HttpMethod.PUT,
+        map("clientRequestId", id(), "revisionId", photo.path("currentRevisionId").asText(), "items", List.of(map("clientRegionId", id(), "geometry", map("schemaVersion", 1, "shape", "RECTANGLE", "coordinateSpace", "NORMALIZED", "x", 0, "y", 0, "width", 1, "height", 1)))), token);
+    code(base() + "/processing-jobs", HttpMethod.POST, map("operation", "ERASE"), token, 403);
+    String entryId = entry(photo), version = template();
+    String taskId = ok(base() + "/print-tasks", HttpMethod.POST, map("clientRequestId", id(), "templateVersionId", version, "sourceType", "COLLECTION", "copies", 1, "sources", List.of(map("sourceType", "ENTRY", "sourceId", entryId))), token).path("id").asText();
+    MiniPdfRenderer.Output output = renderer.render(prints.beginRender(taskId));
+    prints.rendered(taskId, output.bytes(), output.pageCount());
+    assertEquals("READY", ok(base()+"/print-tasks/"+taskId,HttpMethod.GET,null,token).path("status").asText());
+    String captchaId = ok("/api/auth/captcha", HttpMethod.GET, null, null).path("captchaId").asText();
+    Field store = CaptchaService.class.getDeclaredField("store"); store.setAccessible(true);
+    Object cached = ((Map<?,?>)store.get(captcha)).get(captchaId);
+    Field answer = cached.getClass().getDeclaredField("code"); answer.setAccessible(true);
+    JsonNode bound = ok("/api/mini/v1/auth/member-bind", HttpMethod.POST, map("identityToken", identity, "phone", memberPhone, "password", "secret123", "captchaId", captchaId, "captchaCode", answer.get(cached)), null);
+    assertFalse(bound.path("account").path("guest").asBoolean());
+    assertEquals(member.getId().toString(), bound.path("account").path("id").asText());
+    token = bound.path("token").asText();
+    assertEquals(entryId, ok(base()+"/entries/"+entryId,HttpMethod.GET,null,token).path("id").asText());
+    assertEquals("READY", ok(base()+"/print-tasks/"+taskId,HttpMethod.GET,null,token).path("status").asText());
+    assertEquals(student, bound.path("account").path("lastStudentId").asText());
   }
 
   @Test

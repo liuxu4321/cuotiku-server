@@ -2,6 +2,10 @@
 
 ## 版本更新记录
 
+### v1.24.0（2026-10-14，免绑定基础功能，待部署）
+
+新增POST /api/mini/v1/auth/guest；微信验证的基础身份无需绑定会员即可拍照、手动框题、保存和导出PDF。新增sys_user.guest_account，身份GUEST状态；普通会员账号默认guest=false。AI接口拒绝基础身份。绑定正式会员时接管同一微信基础身份的学生及学习资料，保留原ID。协议选择仅控制绑定提交，公开验证码允许提前获取。
+
 ### v1.23.2（2026-10-13，会员解绑，待部署）
 
 新增受保护接口POST /api/mini/v1/auth/member-unbind，验证当前微信身份及账号归属，解除关联并撤销会话；保留会员账号、权益、学生及学习资料。小程序我的页底部提供二次确认入口。
@@ -264,7 +268,7 @@ AUTH-07 `/api/mini/v1/me`按既有契约返回`account`、`capabilities`及`last
 | DELETE | `/api/v2/topics/{id}` | V2TopicController.delete |
 
 
-版本：v1.23.2 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
+版本：v1.24.0 · 服务：`yycuotiku-server` · 面向：错题打印客户端（Electron）开发者
 
 > 版本记录已移到文首。旧接口保持兼容；小程序契约另有版本。
 

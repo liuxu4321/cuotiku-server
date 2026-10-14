@@ -8253,3 +8253,9 @@ ADM-25／26 图片处理任务、ADM-28／29 PDF任务、ADM-31资产、ADM-33�
 输入：`{"identityToken":"当前微信身份凭证"}`。
 输出：`{"code":0,"message":"ok","data":{"unbound":true}}`。
 失败：401未登录／身份凭证无效，403身份归属其他账号或AppID。客户端成功后清空本地会员会话及学习缓存，保留协议同意，再跳转绑定页。网络未知结果不得伪装解除成功；重新获取微信身份确认bound=false时可恢复为已解绑状态。普通退出接口不替代本接口。
+
+## AUTH-10 · 基础使用身份（v1.24.0，2026-10-14）
+
+`POST /api/mini/v1/auth/guest`
+
+无需会员绑定；使用微信code经AUTH-03取得identityToken后提交。输入示例：`{"identityToken":"identity-token"}`。返回与登录相同的token、refreshToken、account；account新增guest布尔值，guest=true表示基础身份，不代表会员绑定。第一次创建默认学生（初始一年级上学期，可配置修改），可采集、手动框题、保存、随机组卷和导出PDF；AI任务和Agent接口拒绝guest。用户后续验证已有会员账号并绑定时，迁移本微信基础身份的学生与学习资料，保留原ID；不合并两个正式会员账号。GUEST为user_identity新状态，既有UNBOUND／BOUND／DISABLED保持兼容。guest_account为sys_user新增布尔字段，既有账号默认false。公开验证码可在协议勾选前获取，账号／密码仅在用户同意并点击绑定后提交。

@@ -114,7 +114,7 @@ public class MiniAccountService {
         "identityExpiresIn",
         300,
         "bound",
-        row.getUserId() != null,
+        row.getUserId() != null && !s.get(User.class, row.getUserId()).isGuestAccount(),
         "account",
         row.getUserId() == null ? null : account(s.get(User.class, row.getUserId())));
   }
@@ -148,12 +148,56 @@ public class MiniAccountService {
     User user = rows.get(0);
     s.em.lock(user, LockModeType.PESSIMISTIC_WRITE);
     check(user);
-    if (identity.getUserId() != null && !identity.getUserId().equals(user.getId()))
-      throw ApiException.conflict("微信身份已绑定其他账号");
+    if (identity.getUserId() != null && !identity.getUserId().equals(user.getId())) {
+      User previous = s.em.find(User.class, identity.getUserId(), LockModeType.PESSIMISTIC_WRITE);
+      if (!previous.isGuestAccount()) throw ApiException.conflict("微信身份已绑定其他账号");
+      transferGuest(previous, user);
+    }
     identity.setUserId(user.getId());
     identity.setStatus("BOUND");
     if (identity.getBoundAt() == null) identity.setBoundAt(Instant.now());
     return tokens(user, body);
+  }
+
+  /** 免会员绑定的基础身份仍由微信code验证；不开放AI授权。 */
+  public Object guest(JsonNode body) {
+    UserIdentity row = identity(body);
+    if (!wechat.appId().equals(row.getAppId())) throw ApiException.forbidden("小程序身份不匹配");
+    User user;
+    if (row.getUserId() == null) {
+      user = new User();
+      user.setPhone("guest_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+      user.setPassword(passwords.encode(UUID.randomUUID().toString()));
+      user.setRole(Role.USER); user.setEnabled(true); user.setGuestAccount(true); user.setAiEnabled(false);
+      s.save(user);
+      StudentProfile student = new StudentProfile();
+      student.setUserId(user.getId()); student.setNickname("默认学生"); student.setGrade(1); student.setTerm(1);
+      s.save(student);
+      UserProfile profile = new UserProfile(); profile.setUserId(user.getId()); profile.setLastStudentId(student.getId()); s.save(profile);
+      row.setUserId(user.getId()); row.setStatus("GUEST");
+    } else user = s.em.find(User.class, row.getUserId(), LockModeType.PESSIMISTIC_WRITE);
+    check(user);
+    return tokens(user, body);
+  }
+
+  /** 仅接管同一微信临时身份的资料，不合并两个正式会员账号。学生及题图ID保留。 */
+  private void transferGuest(User guest, User member) {
+    UserProfile guestProfile = s.em.find(UserProfile.class, guest.getId());
+    String lastStudent = guestProfile == null ? null : guestProfile.getLastStudentId();
+    s.em.flush();
+    Set<String> skipped = Set.of("UserProfile", "UserIdentity", "MiniRequestReceipt", "UserTaxonomyPref", "BookAddIdempotency");
+    for (var entity : s.em.getMetamodel().getEntities()) {
+      if (skipped.contains(entity.getName())) continue;
+      boolean owned = entity.getAttributes().stream().anyMatch(a -> a.getName().equals("userId"));
+      if (owned) s.em.createQuery("update " + entity.getName() + " e set e.userId=:target where e.userId=:source")
+          .setParameter("target", member.getId()).setParameter("source", guest.getId()).executeUpdate();
+    }
+    UserProfile profile = s.em.find(UserProfile.class, member.getId());
+    if (profile == null) { profile = new UserProfile(); profile.setUserId(member.getId()); s.save(profile); }
+    if (lastStudent != null) profile.setLastStudentId(lastStudent);
+    if (guestProfile != null) guestProfile.setLastStudentId(null);
+    guest.setEnabled(false); guest.setSessionJti(null); guest.setRefreshJti(null);
+    guest.setPrevSessionJti(null); guest.setPrevRefreshJti(null);
   }
 
   /** 仅解除当前微信身份的绑定，保留账号权益、学生及所有学习资料。 */
@@ -230,6 +274,7 @@ public class MiniAccountService {
     return map(
         "id",
         user.getId().toString(),
+        "guest", user.isGuestAccount(),
         "memberName",
         user.getMemberName(),
         "memberNo",
